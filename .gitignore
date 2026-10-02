@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.idea/
+.vscode/
+.env
+.env.*
+.DS_Store
+.agents/
+.codex/
+*.log
+*.tmp
+*.swp
+*~
+results/
