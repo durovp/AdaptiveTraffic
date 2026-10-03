@@ -39,6 +39,9 @@ class Config:
     simulation_duration: float = 1800.0
     # Дополнительное время ПОСЛЕ окончания генерации.
     drain_timeout: float = 1800.0
+    ped_max_wait: float = 40.0
+    ped_green: float = 10.0
+    ped_clearance: float = 3.0
 
     def __post_init__(self):
         for name, value in vars(self).items():
@@ -52,6 +55,7 @@ class Config:
             "vehicle_headway", "fixed_green", "yellow", "all_red",
             "min_green", "max_green", "max_wait",
             "simulation_duration", "drain_timeout",
+            "ped_max_wait", "ped_green", "ped_clearance",
         ):
             steps = getattr(self, name) / self.time_step
             if not math.isclose(steps, round(steps), rel_tol=0, abs_tol=1e-9):

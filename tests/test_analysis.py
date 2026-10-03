@@ -2,7 +2,7 @@ import csv
 
 import pytest
 
-from adaptive_traffic.analyze import load_results, main, relative_improvement, select_complete_pairs, summarize
+from adaptive_traffic.analyze import compare_all_pairs, load_results, main, relative_improvement, select_complete_pairs, summarize
 from adaptive_traffic.config import Config
 from adaptive_traffic.experiments import run_experiments
 from adaptive_traffic.metrics import METRIC_NAMES, RESULT_FIELDS
@@ -91,3 +91,31 @@ def test_single_controller_is_not_presented_as_comparison(tmp_path):
     path = run_experiments(Config(simulation_duration=60), ["NS_HEAVY"], [42], tmp_path / "single", "fixed")
     assert main([str(path), "--no-plots"]) == 1
     assert "missing controller" in (path.parent / "analysis" / "analysis_report.txt").read_text()
+
+
+def test_complete_triples_and_queue_only_comparison():
+    rows = [row("FIXED", value=20), row("QUEUE_ONLY", value=10), row("ADAPTIVE", value=8),
+            row("FIXED", 43), row("ADAPTIVE", 43)]
+    selected, excluded = select_complete_pairs(rows)
+    assert len(selected) == 3 and len(excluded) == 1
+    summary, legacy = summarize(selected)
+    assert {record["controller"] for record in summary} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE"}
+    assert next(record for record in legacy if record["metric"] == "mean_wait")["fixed_mean"] == 20
+    comparisons = compare_all_pairs(selected)
+    comparison = next(record for record in comparisons if record["baseline"] == "QUEUE_ONLY" and record["metric"] == "mean_wait")
+    assert comparison["controller"] == "ADAPTIVE"
+    assert comparison["improvement_percent"] == 20
+
+
+def test_incomplete_queue_only_excludes_whole_triple():
+    rows = [row("FIXED"), row("QUEUE_ONLY", completed=False), row("ADAPTIVE")]
+    selected, exclusions = select_complete_pairs(rows)
+    assert selected == [] and len(exclusions) == 1
+
+
+def test_three_controller_csv_analysis(tmp_path):
+    path = run_experiments(Config(simulation_duration=60), ["NS_HEAVY"], [42, 43], tmp_path / "three", "all")
+    assert main([str(path), "--no-plots"]) == 0
+    assert "Complete groups used: 2" in (path.parent / "analysis" / "analysis_report.txt").read_text()
+    with (path.parent / "analysis" / "summary.csv").open() as stream:
+        assert {record["controller"] for record in csv.DictReader(stream)} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE"}

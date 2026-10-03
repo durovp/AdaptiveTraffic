@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Protocol
 
 from .config import Config
-from .models import Phase, TrafficSnapshot
+from .models import Phase, PhaseStats, TrafficSnapshot
 
 
 class Action(str, Enum):
@@ -19,6 +19,7 @@ class Reason(str, Enum):
     MAX_WAIT = "MAX_WAIT"
     MAX_GREEN = "MAX_GREEN"
     HIGHER_PRIORITY = "HIGHER_PRIORITY"
+    PED_MAX_WAIT = "PED_MAX_WAIT"
 
 
 @dataclass(frozen=True)
@@ -92,3 +93,45 @@ class AdaptiveController:
         if other_priority > current_priority + self.config.switch_margin:
             return Decision(Action.REQUEST_SWITCH, Reason.HIGHER_PRIORITY)
         return Decision(Action.KEEP)
+
+
+def calculate_queue_priority(queue: int) -> float:
+    return float(queue)
+
+
+class QueueOnlyController:
+    """Контрольный вариант: те же ограничения, но обычный приоритет без ожидания.
+
+    Правила выписаны явно, чтобы исходный AdaptiveController оставался неизменным.
+    MAX_WAIT по-прежнему отдельно защищает редкое направление.
+    """
+
+    name = "QUEUE_ONLY"
+
+    def __init__(self, config: Config):
+        self.config = config
+
+    def decide(self, current_phase: Phase, green_time: float, snapshot: TrafficSnapshot) -> Decision:
+        current = snapshot.for_phase(current_phase)
+        other = snapshot.for_phase(current_phase.other)
+        if green_time < self.config.min_green:
+            return Decision(Action.KEEP)
+        if current.queue == 0 and other.queue > 0:
+            return Decision(Action.REQUEST_SWITCH, Reason.EMPTY_CURRENT)
+        if other.oldest_wait >= self.config.max_wait:
+            return Decision(Action.REQUEST_SWITCH, Reason.MAX_WAIT)
+        if green_time >= self.config.max_green and other.queue > 0:
+            return Decision(Action.REQUEST_SWITCH, Reason.MAX_GREEN)
+        if calculate_queue_priority(other.queue) > calculate_queue_priority(current.queue) + self.config.switch_margin:
+            return Decision(Action.REQUEST_SWITCH, Reason.HIGHER_PRIORITY)
+        return Decision(Action.KEEP)
+
+
+CONTROLLERS = {"FIXED": FixedController, "QUEUE_ONLY": QueueOnlyController, "ADAPTIVE": AdaptiveController}
+
+
+def phase_priority(controller_name: str, stats: PhaseStats, config: Config) -> float:
+    """Приоритет для журнала/демонстрации. FIXED его в своих решениях не использует."""
+    if controller_name == "QUEUE_ONLY":
+        return calculate_queue_priority(stats.queue)
+    return calculate_priority(stats.queue, stats.oldest_wait, config.wait_equivalent)

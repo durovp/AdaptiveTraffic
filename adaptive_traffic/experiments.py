@@ -9,8 +9,8 @@ from pathlib import Path
 import platform
 
 from .config import Config, SCENARIO_PROFILES
-from .controllers import AdaptiveController, FixedController
-from .metrics import RESULT_FIELDS, calculate_metrics
+from .controllers import CONTROLLERS
+from .metrics import DIAGNOSTIC_FIELDS, RESULT_FIELDS, calculate_diagnostics, calculate_metrics
 from .scenarios import create_traffic_plan
 from .simulation import Simulation, SimulationResult
 from .traffic_demand import TrafficPlan
@@ -22,19 +22,27 @@ SWITCH_FIELDS = (
 )
 
 
-def run_comparison(config: Config, plan: TrafficPlan) -> tuple[SimulationResult, SimulationResult]:
+def run_comparison(
+    config: Config, plan: TrafficPlan, controller_names: tuple[str, ...] = ("FIXED", "ADAPTIVE"),
+    pedestrian_times: tuple[float, ...] = (),
+) -> tuple[SimulationResult, ...]:
     # Именно один объект plan, а не две повторные генерации с тем же seed.
-    fixed = Simulation(config, plan, FixedController(config)).run()
-    adaptive = Simulation(config, plan, AdaptiveController(config)).run()
-    return fixed, adaptive
+    return tuple(Simulation(config, plan, CONTROLLERS[name](config), pedestrian_times).run() for name in controller_names)
 
 
 def run_experiments(
     config: Config, scenarios: list[str], seeds: list[int], output: Path,
     controller_name: str = "both",
+    pedestrian_times: tuple[float, ...] = (),
 ) -> Path:
-    if controller_name not in ("both", "fixed", "adaptive"):
+    if controller_name not in ("both", "all", "fixed", "queue_only", "adaptive"):
         raise ValueError("Unknown controller")
+    if controller_name == "both":
+        controller_names = ("FIXED", "ADAPTIVE")
+    elif controller_name == "all":
+        controller_names = tuple(CONTROLLERS)
+    else:
+        controller_names = (controller_name.upper(),)
     if not scenarios or not seeds or len(set(seeds)) != len(seeds):
         raise ValueError("Provide scenarios and distinct seeds")
     scenarios = [scenario.upper() for scenario in scenarios]
@@ -50,6 +58,7 @@ def run_experiments(
         "scenario_profiles": {name: SCENARIO_PROFILES[name] for name in scenarios},
         "seeds": seeds,
         "controller": controller_name,
+        "pedestrian_times": pedestrian_times,
         "python_version": platform.python_version(),
         "created_at": datetime.now().astimezone().isoformat(),
         "total_clearing_time_definition": "Time from t=0 including generation and drain, seconds",
@@ -57,21 +66,21 @@ def run_experiments(
     }
     (output / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     csv_path = output / "results.csv"
-    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+    with csv_path.open("w", newline="", encoding="utf-8") as stream, (output / "diagnostics.csv").open("w", newline="", encoding="utf-8") as diagnostics_stream:
         writer = csv.DictWriter(stream, fieldnames=RESULT_FIELDS)
         writer.writeheader()
+        diagnostics_writer = csv.DictWriter(diagnostics_stream, fieldnames=DIAGNOSTIC_FIELDS)
+        diagnostics_writer.writeheader()
         for scenario in scenarios:
             for seed in seeds:
                 plan = create_traffic_plan(scenario, seed, config.simulation_duration)
-                if controller_name == "both":
-                    results = run_comparison(config, plan)
-                else:
-                    controller = FixedController(config) if controller_name == "fixed" else AdaptiveController(config)
-                    results = (Simulation(config, plan, controller).run(),)
+                results = run_comparison(config, plan, controller_names, pedestrian_times)
                 for result in results:
                     metrics = calculate_metrics(result)
                     writer.writerow(metrics)
+                    diagnostics_writer.writerow(calculate_diagnostics(result))
                     stream.flush()
+                    diagnostics_stream.flush()
                     log_path = logs / f"{scenario}_{seed}_{result.controller}.csv"
                     with log_path.open("w", newline="", encoding="utf-8") as log_stream:
                         log_writer = csv.DictWriter(log_stream, fieldnames=SWITCH_FIELDS)
@@ -88,11 +97,13 @@ def run_experiments(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="AdaptiveTraffic: simulation and paired experiments")
-    parser.add_argument("--controller", type=str.lower, choices=("both", "fixed", "adaptive"), default="both")
+    parser.add_argument("--controller", type=str.lower, choices=("both", "all", "fixed", "queue_only", "adaptive"), default="both")
     parser.add_argument("--scenario", type=str.upper, choices=("ALL", *SCENARIO_PROFILES), default="NS_HEAVY")
     parser.add_argument("--runs", type=int, default=1, help="Number of consecutive seeds")
     parser.add_argument("--seed", type=int, default=42, help="First seed")
     parser.add_argument("--output", type=Path, help="New output directory (must not exist)")
+    parser.add_argument("--visualize", action="store_true", help="Open the pygame demonstration")
+    parser.add_argument("--pedestrian-times", type=float, nargs="*", default=[], metavar="SECONDS", help="Optional sorted request times, identical for every controller")
     for field in fields(Config):
         option = "--duration" if field.name == "simulation_duration" else "--" + field.name.replace("_", "-")
         parser.add_argument(option, dest=field.name, type=float, default=field.default)
@@ -103,10 +114,22 @@ def main(argv=None) -> int:
         config = Config(**{field.name: getattr(args, field.name) for field in fields(Config)})
     except ValueError as error:
         parser.error(str(error))
+    pedestrian_times = tuple(args.pedestrian_times)
+    if any(not 0 <= time < config.simulation_duration for time in pedestrian_times) or sorted(pedestrian_times) != list(pedestrian_times):
+        parser.error("--pedestrian-times must be sorted and lie in [0, duration)")
+    if args.visualize:
+        if args.controller in ("both", "all") or args.scenario == "ALL" or args.runs != 1:
+            parser.error("GUI requires one --controller (fixed/queue_only/adaptive), one scenario and --runs 1")
+        if args.output is not None:
+            parser.error("--output is for headless experiments; GUI does not write experiment CSV")
+        from .gui import run_gui
+        from .presentation import GuiSession
+        plan = create_traffic_plan(args.scenario, args.seed, config.simulation_duration)
+        return run_gui(GuiSession(config, plan, args.controller, pedestrian_times))
     output = args.output or Path("results") / datetime.now().strftime("run_%Y%m%d_%H%M%S_%f")
     scenarios = list(SCENARIO_PROFILES) if args.scenario == "ALL" else [args.scenario]
     try:
-        csv_path = run_experiments(config, scenarios, list(range(args.seed, args.seed + args.runs)), output, args.controller)
+        csv_path = run_experiments(config, scenarios, list(range(args.seed, args.seed + args.runs)), output, args.controller, pedestrian_times)
     except FileExistsError:
         parser.error(f"Output directory already exists: {output}; choose a new directory")
     print(f"Results: {csv_path}")
