@@ -119,7 +119,10 @@ def draw_frame(pygame, screen, session: GuiSession, fonts):
         text(line, (824, 100 + index * 25), small)
     text("SPACE pause/resume   R restart", (824, 686), small)
     text("1 x1   2 x5   3 x20   P pedestrian", (824, 713), small)
-    text("F fixed   Q queue   A adaptive   ESC exit", (824, 740), small)
+    text("F fixed  Q queue  A V1  V V2  ESC exit", (824, 740), small)
+    if view["controller_debug"]:
+        debug = view["controller_debug"]
+        text(f"V2 balanced: {debug['balanced_load_detected']}  min: {debug['effective_min_green']:.0f}s  ratio: {debug['priority_ratio']:.2f}", (824, 768), small)
     text("Queues are capped at 8 drawn cars; counts are exact.", (18, 772), small)
 
 
@@ -154,8 +157,8 @@ def run_gui(session: GuiSession, max_frames: int | None = None, screenshot: Path
                         session.simulation.request_pedestrian()
                     elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
                         session.speed = {pygame.K_1: 1, pygame.K_2: 5, pygame.K_3: 20}[event.key]
-                    elif event.key in (pygame.K_f, pygame.K_q, pygame.K_a):
-                        session.restart({pygame.K_f: "FIXED", pygame.K_q: "QUEUE_ONLY", pygame.K_a: "ADAPTIVE"}[event.key])
+                    elif event.key in (pygame.K_f, pygame.K_q, pygame.K_a, pygame.K_v):
+                        session.restart({pygame.K_f: "FIXED", pygame.K_q: "QUEUE_ONLY", pygame.K_a: "ADAPTIVE", pygame.K_v: "ADAPTIVE_V2"}[event.key])
             session.advance_wall_time(elapsed)
             draw_frame(pygame, screen, session, fonts)
             pygame.display.flip()

@@ -11,7 +11,7 @@ import platform
 from .config import Config, SCENARIO_PROFILES
 from .controllers import CONTROLLERS
 from .metrics import DIAGNOSTIC_FIELDS, RESULT_FIELDS, calculate_diagnostics, calculate_metrics
-from .scenarios import create_traffic_plan
+from .scenarios import create_traffic_plan, create_custom_plan
 from .simulation import Simulation, SimulationResult
 from .traffic_demand import TrafficPlan
 
@@ -34,10 +34,16 @@ def run_experiments(
     config: Config, scenarios: list[str], seeds: list[int], output: Path,
     controller_name: str = "both",
     pedestrian_times: tuple[float, ...] = (),
+    *, controller_names: tuple[str, ...] | None = None,
+    custom_rates: tuple[float, float, float, float] | None = None,
+    progress=None,
 ) -> Path:
-    if controller_name not in ("both", "all", "fixed", "queue_only", "adaptive"):
+    if controller_name not in ("both", "all", "fixed", "queue_only", "adaptive", "adaptive_v2"):
         raise ValueError("Unknown controller")
-    if controller_name == "both":
+    if controller_names is not None:
+        if not controller_names or len(set(controller_names)) != len(controller_names) or any(n not in CONTROLLERS for n in controller_names):
+            raise ValueError("Provide distinct known controllers")
+    elif controller_name == "both":
         controller_names = ("FIXED", "ADAPTIVE")
     elif controller_name == "all":
         controller_names = tuple(CONTROLLERS)
@@ -46,7 +52,7 @@ def run_experiments(
     if not scenarios or not seeds or len(set(seeds)) != len(seeds):
         raise ValueError("Provide scenarios and distinct seeds")
     scenarios = [scenario.upper() for scenario in scenarios]
-    if len(set(scenarios)) != len(scenarios) or any(s not in SCENARIO_PROFILES for s in scenarios):
+    if len(set(scenarios)) != len(scenarios) or any(s not in SCENARIO_PROFILES and not (s == "CUSTOM" and custom_rates is not None) for s in scenarios):
         raise ValueError("Provide distinct known scenarios")
 
     # Не перезаписываем результаты предыдущего исследования.
@@ -55,9 +61,10 @@ def run_experiments(
     logs.mkdir()
     metadata = {
         "config": asdict(config),
-        "scenario_profiles": {name: SCENARIO_PROFILES[name] for name in scenarios},
+        "scenario_profiles": {name: SCENARIO_PROFILES.get(name, ((1.0, custom_rates),)) for name in scenarios},
         "seeds": seeds,
         "controller": controller_name,
+        "controllers": controller_names,
         "pedestrian_times": pedestrian_times,
         "python_version": platform.python_version(),
         "created_at": datetime.now().astimezone().isoformat(),
@@ -73,7 +80,7 @@ def run_experiments(
         diagnostics_writer.writeheader()
         for scenario in scenarios:
             for seed in seeds:
-                plan = create_traffic_plan(scenario, seed, config.simulation_duration)
+                plan = create_custom_plan(seed, config.simulation_duration, custom_rates) if scenario == "CUSTOM" else create_traffic_plan(scenario, seed, config.simulation_duration)
                 results = run_comparison(config, plan, controller_names, pedestrian_times)
                 for result in results:
                     metrics = calculate_metrics(result)
@@ -92,22 +99,34 @@ def run_experiments(
                         f"passed={metrics['vehicles_passed']}/{metrics['vehicles_generated']}; "
                         f"mean_wait={metrics['mean_wait']:.2f} s"
                     )
+                    if progress is not None:
+                        progress(metrics, calculate_diagnostics(result))
     return csv_path
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="AdaptiveTraffic: simulation and paired experiments")
-    parser.add_argument("--controller", type=str.lower, choices=("both", "all", "fixed", "queue_only", "adaptive"), default="both")
+    parser.add_argument("--controller", type=str.lower, choices=("both", "all", "fixed", "queue_only", "adaptive", "adaptive_v2"), default="both")
     parser.add_argument("--scenario", type=str.upper, choices=("ALL", *SCENARIO_PROFILES), default="NS_HEAVY")
     parser.add_argument("--runs", type=int, default=1, help="Number of consecutive seeds")
     parser.add_argument("--seed", type=int, default=42, help="First seed")
     parser.add_argument("--output", type=Path, help="New output directory (must not exist)")
     parser.add_argument("--visualize", action="store_true", help="Open the pygame demonstration")
+    parser.add_argument("--web", action="store_true", help="Open the local web laboratory")
+    parser.add_argument("--web-port", type=int, default=8000)
+    parser.add_argument("--no-browser", action="store_true", help="Do not open a browser automatically")
     parser.add_argument("--pedestrian-times", type=float, nargs="*", default=[], metavar="SECONDS", help="Optional sorted request times, identical for every controller")
     for field in fields(Config):
         option = "--duration" if field.name == "simulation_duration" else "--" + field.name.replace("_", "-")
         parser.add_argument(option, dest=field.name, type=float, default=field.default)
     args = parser.parse_args(argv)
+    if args.web:
+        if args.visualize or args.output is not None:
+            parser.error("--web cannot be combined with --visualize or --output")
+        if not 1 <= args.web_port <= 65535:
+            parser.error("--web-port must lie in 1..65535")
+        from .web import run_web
+        return run_web(args.web_port, not args.no_browser)
     if args.runs < 1:
         parser.error("--runs must be positive")
     try:
@@ -119,7 +138,7 @@ def main(argv=None) -> int:
         parser.error("--pedestrian-times must be sorted and lie in [0, duration)")
     if args.visualize:
         if args.controller in ("both", "all") or args.scenario == "ALL" or args.runs != 1:
-            parser.error("GUI requires one --controller (fixed/queue_only/adaptive), one scenario and --runs 1")
+            parser.error("GUI requires one --controller (fixed/queue_only/adaptive/adaptive_v2), one scenario and --runs 1")
         if args.output is not None:
             parser.error("--output is for headless experiments; GUI does not write experiment CSV")
         from .gui import run_gui

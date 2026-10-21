@@ -42,6 +42,9 @@ class Config:
     ped_max_wait: float = 40.0
     ped_green: float = 10.0
     ped_clearance: float = 3.0
+    v2_busy_queue_threshold: float = 8
+    v2_balance_ratio: float = 0.65
+    v2_balanced_min_green: float = 30.0
 
     def __post_init__(self):
         for name, value in vars(self).items():
@@ -51,11 +54,14 @@ class Config:
                 raise ValueError(f"{name} must be positive")
         if self.min_green > self.max_green:
             raise ValueError("min_green must not exceed max_green")
+        if not 0 < self.v2_balance_ratio <= 1:
+            raise ValueError("v2_balance_ratio must lie in (0, 1]")
         for name in (
             "vehicle_headway", "fixed_green", "yellow", "all_red",
             "min_green", "max_green", "max_wait",
             "simulation_duration", "drain_timeout",
             "ped_max_wait", "ped_green", "ped_clearance",
+            "v2_balanced_min_green",
         ):
             steps = getattr(self, name) / self.time_step
             if not math.isclose(steps, round(steps), rel_tol=0, abs_tol=1e-9):

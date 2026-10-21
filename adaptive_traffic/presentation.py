@@ -5,6 +5,30 @@ from .controllers import Action, CONTROLLERS, phase_priority
 from .models import Direction
 from .simulation import Simulation
 from .traffic_demand import TrafficPlan
+from .metrics import percentile
+
+
+REASON_EXPLANATIONS = {
+    "FIXED_TIMER": "Истекло заданное время фиксированного зелёного.",
+    "EMPTY_CURRENT": "На текущем зелёном больше нет машин, а другая сторона ждёт.",
+    "MAX_WAIT": "Машины другой стороны ждут слишком долго.",
+    "MAX_GREEN": "Достигнут максимум зелёного, на другой стороне есть машины.",
+    "HIGHER_PRIORITY": "Другая сторона получила заметно больший приоритет.",
+    "PED_MAX_WAIT": "Пешеход ждёт предельно долго: начинается безопасное переключение.",
+}
+
+
+def explain_decision(simulation: Simulation) -> str:
+    if simulation.last_decision.reason:
+        return REASON_EXPLANATIONS[simulation.last_decision.reason.value]
+    if simulation.light.green_phase is None:
+        return "Автомат выдерживает защитный или пешеходный интервал. Автомобили не обслуживаются."
+    debug = simulation.last_controller_debug
+    if debug and debug["balanced_load_detected"] and debug["green_elapsed"] < debug["effective_min_green"]:
+        return "Обе стороны сильно и примерно одинаково загружены. Зелёный удерживается дольше, чтобы уменьшить потери на переходах."
+    if simulation.light.elapsed(simulation.time) < simulation.config.min_green:
+        return "Минимальное время зелёного ещё не истекло."
+    return "Условия переключения не выполнены: сохраняем зелёный."
 
 
 def get_view_state(simulation: Simulation) -> dict:
@@ -33,7 +57,13 @@ def get_view_state(simulation: Simulation) -> dict:
         "decision": "SWITCH" if simulation.last_decision.action == Action.REQUEST_SWITCH else "KEEP",
         "last_switch_reason": simulation.switches[-1]["reason"] if simulation.switches else "N/A",
         "mean_wait": sum(vehicle.waiting_time for vehicle in passed) / len(passed) if passed else 0.0,
-        "cars_generated": simulation.arrival_index,
+        "p95_wait": percentile([vehicle.waiting_time for vehicle in passed], 95),
+        "number_of_switches": len(simulation.switches),
+        "explanation": explain_decision(simulation),
+        "controller_debug": simulation.last_controller_debug,
+        "departures": [{"id": v.id, "direction": v.direction.value, "time": v.crossing_time} for v in simulation.last_departures],
+        "cars_generated": simulation.arrival_index + simulation.manual_count,
+        "manual_count": simulation.manual_count,
         "cars_planned": len(simulation.plan.arrivals),
         "cars_passed": len(passed),
         "finished": simulation.finished,

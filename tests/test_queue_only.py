@@ -51,7 +51,7 @@ def test_three_controllers_share_plan_and_write_csv(tmp_path):
     assert all(result.plan is plan and result.completed_successfully for result in results)
     path = run_experiments(config, ["NS_HEAVY"], [42], tmp_path / "three", "all")
     with path.open() as stream:
-        assert {row["controller"] for row in csv.DictReader(stream)} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE"}
+        assert {row["controller"] for row in csv.DictReader(stream)} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE", "ADAPTIVE_V2"}
 
 
 def test_queue_only_gui_priority_and_restart():

@@ -59,7 +59,7 @@ def test_diagnostics_csv_has_one_row_per_run_and_accounts_for_switches(tmp_path)
         results = list(csv.DictReader(stream))
     with (path.parent / "diagnostics.csv").open() as stream:
         diagnostics = list(csv.DictReader(stream))
-    assert len(diagnostics) == len(results) == 6
+    assert len(diagnostics) == len(results) == 8
     for result, diagnostic in zip(results, diagnostics):
         assert (result["scenario"], result["controller"], result["seed"]) == (diagnostic["scenario"], diagnostic["controller"], diagnostic["seed"])
         assert sum(int(value) for key, value in diagnostic.items() if key.startswith("switches_")) == int(result["number_of_switches"])

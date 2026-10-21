@@ -127,7 +127,50 @@ class QueueOnlyController:
         return Decision(Action.KEEP)
 
 
-CONTROLLERS = {"FIXED": FixedController, "QUEUE_ONLY": QueueOnlyController, "ADAPTIVE": AdaptiveController}
+class AdaptiveV2Controller:
+    """V1 priority with a longer minimum for two busy, similarly loaded phases.
+
+    No scenario knowledge, memory, randomness or changes to the V1 controller.
+    The minimum is recalculated each step: an empty or unbalanced current phase
+    immediately loses stabilization. Clamp it to the configured safety bounds.
+    """
+
+    name = "ADAPTIVE_V2"
+
+    def __init__(self, config: Config):
+        self.config = config
+
+    def debug_state(self, current_phase: Phase, snapshot: TrafficSnapshot) -> dict:
+        current, other = snapshot.for_phase(current_phase), snapshot.for_phase(current_phase.other)
+        a = calculate_priority(current.queue, current.oldest_wait, self.config.wait_equivalent)
+        b = calculate_priority(other.queue, other.oldest_wait, self.config.wait_equivalent)
+        ratio = min(a, b) / max(a, b) if max(a, b) else 0.0
+        busy = min(current.queue, other.queue) >= self.config.v2_busy_queue_threshold
+        balanced = busy and ratio >= self.config.v2_balance_ratio
+        minimum = self.config.min_green
+        if balanced:
+            minimum = min(self.config.max_green, max(minimum, self.config.v2_balanced_min_green))
+        return {"balanced_load_detected": balanced, "effective_min_green": minimum,
+                "priority_ratio": ratio, "current_priority": a, "other_priority": b}
+
+    def decide(self, current_phase: Phase, green_time: float, snapshot: TrafficSnapshot) -> Decision:
+        current, other = snapshot.for_phase(current_phase), snapshot.for_phase(current_phase.other)
+        debug = self.debug_state(current_phase, snapshot)
+        if green_time < debug["effective_min_green"]:
+            return Decision(Action.KEEP)
+        if current.queue == 0 and other.queue > 0:
+            return Decision(Action.REQUEST_SWITCH, Reason.EMPTY_CURRENT)
+        if other.oldest_wait >= self.config.max_wait:
+            return Decision(Action.REQUEST_SWITCH, Reason.MAX_WAIT)
+        if green_time >= self.config.max_green and other.queue > 0:
+            return Decision(Action.REQUEST_SWITCH, Reason.MAX_GREEN)
+        if debug["other_priority"] > debug["current_priority"] + self.config.switch_margin:
+            return Decision(Action.REQUEST_SWITCH, Reason.HIGHER_PRIORITY)
+        return Decision(Action.KEEP)
+
+
+CONTROLLERS = {"FIXED": FixedController, "QUEUE_ONLY": QueueOnlyController,
+               "ADAPTIVE": AdaptiveController, "ADAPTIVE_V2": AdaptiveV2Controller}
 
 
 def phase_priority(controller_name: str, stats: PhaseStats, config: Config) -> float:

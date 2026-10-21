@@ -25,7 +25,7 @@ class SimulationResult:
 
 
 class Simulation:
-    def __init__(self, config: Config, plan: TrafficPlan, controller: Controller, pedestrian_times: tuple[float, ...] = ()):
+    def __init__(self, config: Config, plan: TrafficPlan, controller: Controller, pedestrian_times: tuple[float, ...] = (), *, allow_injection: bool = False):
         if plan.duration != config.simulation_duration:
             raise ValueError("Plan duration must match simulation_duration")
         self.config = config
@@ -45,10 +45,14 @@ class Simulation:
             for arrival in plan.arrivals
         ]
         self.arrival_index = 0
+        self.allow_injection = allow_injection
+        self.manual_count = 0
+        self._next_manual_id = max((v.id for v in self.vehicles), default=0) + 1
         self.step_index = 0
         self.queue_samples = []
         self.switches = []
         self.last_decision = Decision(Action.KEEP)
+        self.last_controller_debug = None
         self.last_departures: list[Vehicle] = []
         self.state_durations = {state.value: 0.0 for state in State}
         self.green_durations = []
@@ -62,7 +66,37 @@ class Simulation:
 
     @property
     def all_passed(self) -> bool:
-        return self.arrival_index == len(self.vehicles) and not any(self.queues.values())
+        return self.arrival_index == len(self.plan.arrivals) and not any(self.queues.values())
+
+    def _enqueue_arrivals(self):
+        while self.arrival_index < len(self.plan.arrivals):
+            vehicle = self.vehicles[self.arrival_index]
+            if vehicle.arrival_time > self.time:
+                break
+            self.queues[vehicle.direction].append(vehicle)
+            self.arrival_index += 1
+
+    def inject(self, direction: Direction, count: int):
+        """Explicit demo input; never mutates the immutable TrafficPlan.
+
+        Admit scheduled arrivals first so a manual car cannot overtake them.
+        Manual vehicles follow the preallocated scheduled vehicles in storage.
+        """
+        if not self.allow_injection:
+            raise ValueError("Ручной ввод разрешён только в интерактивной демонстрации")
+        if self.finished or self.time >= self.plan.duration:
+            raise ValueError("Генерация завершена; перезапустите демонстрацию")
+        if not isinstance(direction, Direction) or type(count) is not int or not 1 <= count <= 20:
+            raise ValueError("Укажите направление и 1–20 автомобилей")
+        if self.manual_count + count > 1000:
+            raise ValueError("Достигнут лимит 1000 ручных автомобилей; перезапустите демонстрацию")
+        self._enqueue_arrivals()
+        for _ in range(count):
+            vehicle = Vehicle(self._next_manual_id, direction, self.time)
+            self._next_manual_id += 1
+            self.vehicles.append(vehicle)
+            self.queues[direction].append(vehicle)
+        self.manual_count += count
 
     @property
     def finished(self) -> bool:
@@ -107,21 +141,20 @@ class Simulation:
         interval_end = time + self.config.time_step
         self.last_departures = []
         self.last_decision = Decision(Action.KEEP)
+        self.last_controller_debug = None
         while self.pedestrian_index < len(self.pedestrian_times) and self.pedestrian_times[self.pedestrian_index] <= time:
             self.light.request_pedestrian(self.pedestrian_times[self.pedestrian_index])
             self.pedestrian_index += 1
         # Дробный момент появления виден на ближайшей следующей границе шага.
-        while self.arrival_index < len(self.vehicles):
-            vehicle = self.vehicles[self.arrival_index]
-            if vehicle.arrival_time > time:
-                break
-            self.queues[vehicle.direction].append(vehicle)
-            self.arrival_index += 1
+        self._enqueue_arrivals()
 
         self.light.advance(time)
         phase = self.light.green_phase
         snapshot = self.snapshot()
         if phase is not None:
+            debug = getattr(self.controller, "debug_state", None)
+            if debug is not None:
+                self.last_controller_debug = {**debug(phase, snapshot), "green_elapsed": self.light.elapsed(time), "time": time}
             decision = self.controller.decide(phase, self.light.elapsed(time), snapshot)
             next_phase = phase.other
             # Пешеходная обвязка не меняет алгоритм автомобильного контроллера.

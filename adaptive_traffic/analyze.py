@@ -73,7 +73,9 @@ def load_results(path: Path) -> list[dict]:
 def select_complete_pairs(rows: list[dict]) -> tuple[list[dict], list[str]]:
     # Старые CSV сравниваются попарно. Если есть QUEUE_ONLY, для каждого seed
     # нужна полная тройка, чтобы столбцы графика опирались на одинаковые seeds.
-    controllers = tuple(CONTROLLERS) if any(row["controller"] == "QUEUE_ONLY" for row in rows) else ("FIXED", "ADAPTIVE")
+    controllers = tuple(name for name in CONTROLLERS if any(row["controller"] == name for row in rows))
+    if len(controllers) < 2:
+        controllers = ("FIXED", "ADAPTIVE")
     pairs = defaultdict(dict)
     for row in rows:
         pairs[(row["scenario"], row["seed"])][row["controller"]] = row
@@ -103,8 +105,10 @@ def summarize(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     for scenario in sorted({row["scenario"] for row in rows}):
         fixed_rows = sorted(groups[(scenario, "FIXED")], key=lambda row: row["seed"])
         adaptive_rows = sorted(groups[(scenario, "ADAPTIVE")], key=lambda row: row["seed"])
-        if [row["seed"] for row in fixed_rows] != [row["seed"] for row in adaptive_rows]:
+        if fixed_rows and adaptive_rows and [row["seed"] for row in fixed_rows] != [row["seed"] for row in adaptive_rows]:
             raise ValueError("Summaries require matching seeds")
+        if not fixed_rows or not adaptive_rows:
+            continue
         for metric in METRIC_NAMES:
             fixed_values = [row[metric] for row in fixed_rows]
             adaptive_values = [row[metric] for row in adaptive_rows]
@@ -131,7 +135,9 @@ def summarize(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     # Формат comparison.csv для FIXED/ADAPTIVE остаётся прежним.
     # Третий алгоритм добавляется в summary и в отдельное общее парное сравнение.
     for (scenario, controller), records in sorted(groups.items()):
-        if controller == "QUEUE_ONLY":
+        if not records:
+            continue
+        if controller not in ("FIXED", "ADAPTIVE") or not groups.get((scenario, "FIXED")) or not groups.get((scenario, "ADAPTIVE")):
             for metric in METRIC_NAMES:
                 values = [row[metric] for row in records]
                 summary.append({
@@ -192,7 +198,7 @@ def create_plots(summary: list[dict], output: Path):
 
     scenarios = sorted({row["scenario"] for row in summary})
     controllers = [name for name in CONTROLLERS if any(row["controller"] == name for row in summary)]
-    colors = {"FIXED": "#4477AA", "QUEUE_ONLY": "#228833", "ADAPTIVE": "#EE7733"}
+    colors = {"FIXED": "#4477AA", "QUEUE_ONLY": "#228833", "ADAPTIVE": "#EE7733", "ADAPTIVE_V2": "#AA4499"}
     values = {(row["scenario"], row["controller"], row["metric"]): row for row in summary}
     for metric, (title, units) in PLOTS.items():
         figure, axes = plt.subplots(figsize=(11, 5.5), layout="constrained")
@@ -233,7 +239,7 @@ def main(argv=None) -> int:
         parser.error(str(error))
     output = args.output or args.csv_path.parent / "analysis"
     output.mkdir(parents=True, exist_ok=True)
-    group_size = 3 if any(row["controller"] == "QUEUE_ONLY" for row in rows) else 2
+    group_size = max(2, len({row["controller"] for row in rows}))
     group_label = "pairs" if group_size == 2 else "groups"
     report = [
         f"Source: {args.csv_path.resolve()}", f"Input runs: {len(rows)}",
@@ -253,7 +259,8 @@ def main(argv=None) -> int:
         return 1
     summary, comparisons = summarize(paired_rows)
     write_table(output / "summary.csv", summary)
-    write_table(output / "comparison.csv", comparisons)
+    if comparisons:
+        write_table(output / "comparison.csv", comparisons)
     pairwise = compare_all_pairs(paired_rows)
     write_table(output / "pairwise_comparison.csv", pairwise)
     if not args.no_plots:

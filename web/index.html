@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101820">
+    <title>AdaptiveTraffic · Лаборатория перекрёстка</title>
+    <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/app.js" defer>
+    </script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="#home">
+        <img src="/static/icon.svg" alt="" width="36" height="36">
+        <span>Adaptive<span class="accent">Traffic</span>
+          <small>ЛАБОРАТОРИЯ ПЕРЕКРЁСТКА</small>
+        </span>
+      </a>
+      <div class="nav-label">ИССЛЕДУЙТЕ СИСТЕМУ</div>
+      <nav aria-label="Разделы">
+        <a href="#home" data-page="home">⌂ <span>Главная</span>
+        </a>
+        <a href="#simulator" data-page="simulator">⊞ <span>Симулятор</span>
+        </a>
+        <a href="#compare" data-page="compare">⇄ <span>Сравнение</span>
+        </a>
+        <a href="#laboratory" data-page="laboratory">⚗ <span>Лаборатория</span>
+        </a>
+        <a href="#results" data-page="results">▥ <span>Результаты</span>
+        </a>
+        <a href="#how" data-page="how">◇ <span>Как это работает</span>
+        </a>
+        <a href="#about" data-page="about">ⓘ <span>О проекте</span>
+        </a>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="status-dot">
+        </span> Локальная модель<small>Один перекрёсток. Четыре подхода.<br>Прозрачные решения.</small>
+        <a href="https://github.com/durovp/AdaptiveTraffic" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <span id="breadcrumb">ПРОЕКТ / ОБЗОР</span>
+        <span class="top-right">PYTHON MODEL <span class="status-dot">
+          </span>
+          <button id="stand" title="Полный экран / режим стенда">⛶ Режим стенда</button>
+        </span>
+      </header>
+      <main>
+        <section id="home" class="page">
+          <div class="eyebrow">ИННОВАЦИИ УМНОГО ГОРОДА / ИНТЕРАКТИВНЫЙ СТЕНД</div>
+          <div class="hero">
+            <div>
+              <h1>Город меняет ритм.<br>
+                <span>Светофор — тоже.</span>
+              </h1>
+              <p class="lead">Адаптивное управление городским перекрёстком</p>
+              <p class="muted">Сравните алгоритмы управления на одном и том же транспортном потоке. Не верьте готовому графику — попробуйте сами.</p>
+              <div class="hero-actions">
+                <button class="primary" id="try-demo">Попробовать самим <span>↗</span>
+                </button>
+                <button id="home-compare">⇄ Сравнить алгоритмы</button>
+                <a class="text-link" href="#laboratory">Провести эксперимент →</a>
+              </div>
+              <div class="hero-notes">
+                <span>01 / Создайте очередь</span>
+                <span>02 / Наблюдайте решение</span>
+                <span>03 / Проверьте результат</span>
+              </div>
+            </div>
+            <div class="hero-visual panel">
+              <div class="panel-heading">
+                <span>ПЕРЕКРЁСТОК / СХЕМА</span>
+                <span class="chip">NS + EW</span>
+              </div>
+              <canvas id="hero-canvas" width="600" height="500" aria-label="Схема четырёхстороннего перекрёстка">
+              </canvas>
+              <div class="diagram-caption">Контроллер решает, <strong>когда переключиться.</strong>
+                <br>Автомат светофора отвечает за безопасную последовательность.</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <article class="panel">
+              <span class="number">01</span>
+              <h3>Проблема</h3>
+              <p>Фиксированный светофор не учитывает текущую очередь.</p>
+            </article>
+            <article class="panel">
+              <span class="number">02</span>
+              <h3>Идея</h3>
+              <p>Приоритет зависит от числа автомобилей и времени ожидания.</p>
+            </article>
+            <article class="panel">
+              <span class="number">03</span>
+              <h3>Исследование</h3>
+              <p>В каких условиях адаптивное управление действительно эффективнее?</p>
+            </article>
+          </div>
+        </section>
+        <section id="simulator" class="page" hidden>
+          <div class="section-title">
+            <div>
+              <div class="eyebrow">01 / ПОПРОБУЙТЕ САМИ</div>
+              <h1>Управляйте потоком</h1>
+            </div>
+            <span class="chip">Ручной демонстрационный ввод</span>
+          </div>
+          <div class="guide" id="guide">
+            <strong>Попробуйте за минуту</strong>
+            <span>1. Создайте пробку NS</span>
+            <span>2. Нажмите пешеходную кнопку</span>
+            <span>3. Сравните с FIXED</span>
+          </div>
+          <form id="sim-form" class="panel settings-row">
+            <label>Сценарий<select id="sim-scenario">
+              </select>
+            </label>
+            <label>Алгоритм<select id="sim-controller">
+              </select>
+            </label>
+            <label>Seed<input id="sim-seed" type="number" min="0" max="2147483647" value="42">
+            </label>
+            <label>Генерация, с<input id="sim-duration" type="number" min="10" max="3600" value="180">
+            </label>
+            <button type="submit">Новый поток ↻</button>
+            <div id="sim-custom" class="custom-rates" hidden>
+            </div>
+            <p id="sim-description" class="form-description">
+            </p>
+          </form>
+          <div id="sim-toolbar" class="toolbar">
+            <button class="primary" data-control="start">▶ Старт</button>
+            <button data-control="pause">Ⅱ Пауза</button>
+            <button data-control="restart">↻ Заново</button>
+            <div class="speeds" aria-label="Скорость">
+              <button data-speed="1" class="selected">×1</button>
+              <button data-speed="5">×5</button>
+              <button data-speed="20">×20</button>
+              <button data-speed="100">×100</button>
+            </div>
+            <button data-control="finish">До конца ⇥</button>
+            <span id="sim-status" class="run-status">ПАУЗА</span>
+          </div>
+          <div class="manual-main quick-controls">
+            <button class="jam" data-jam="NS">+ Пробка NS</button>
+            <button class="jam" data-jam="EW">+ Пробка EW</button>
+            <button class="pedestrian" data-pedestrian>♙ Пешеходный запрос</button>
+            <button id="compare-current">Сравнить с FIXED ⇄</button>
+          </div>
+          <div id="sim-cards" class="simulation-grid single">
+          </div>
+          <div class="manual panel">
+            <div>
+              <strong>Создайте поток сами</strong>
+              <small>Демонстрационный ввод; он не входит в научные эксперименты.</small>
+            </div>
+            <div id="sim-injections" class="injections">
+            </div>
+            <p class="muted small">Пробка = +10 машин на каждый из двух подходов. Кнопки доступны до конца генерации.</p>
+            <p id="sim-event-status" class="event-status" aria-live="polite">
+            </p>
+          </div>
+          <div id="sim-finished">
+          </div>
+        </section>
+        <section id="compare" class="page" hidden>
+          <div class="section-title">
+            <div>
+              <div class="eyebrow">02 / ОДИН ПОТОК — РАЗНЫЕ РЕШЕНИЯ</div>
+              <h1>Сравните алгоритмы</h1>
+            </div>
+            <span class="chip">Синхронное модельное время</span>
+          </div>
+          <p class="muted">Общий TrafficPlan, seed и моменты запросов. Ручные машины добавляются одинаково каждому алгоритму.</p>
+          <form id="compare-form" class="panel settings-row">
+            <label>Сценарий<select id="compare-scenario">
+              </select>
+            </label>
+            <label>Seed<input id="compare-seed" type="number" min="0" value="42">
+            </label>
+            <label>Генерация, с<input id="compare-duration" type="number" min="10" max="3600" value="180">
+            </label>
+            <div id="compare-controllers" class="checks">
+            </div>
+            <button type="submit">Начать сравнение</button>
+            <div id="compare-custom" class="custom-rates" hidden>
+            </div>
+            <p id="compare-description" class="form-description">
+            </p>
+          </form>
+          <div id="compare-toolbar" class="toolbar">
+            <button class="primary" data-control="start">▶ Старт</button>
+            <button data-control="pause">Ⅱ Пауза</button>
+            <button data-control="restart">↻ Заново</button>
+            <div class="speeds">
+              <button data-speed="1" class="selected">×1</button>
+              <button data-speed="5">×5</button>
+              <button data-speed="20">×20</button>
+              <button data-speed="100">×100</button>
+            </div>
+            <button data-control="finish">До конца ⇥</button>
+            <span id="compare-status" class="run-status">ПАУЗА</span>
+          </div>
+          <div id="compare-cards" class="simulation-grid">
+          </div>
+          <div class="manual panel">
+            <strong>Одинаковое событие для всех контроллеров</strong>
+            <div class="manual-main">
+              <button class="jam" data-jam="NS">+ Пробка NS</button>
+              <button class="jam" data-jam="EW">+ Пробка EW</button>
+              <button class="pedestrian" data-pedestrian>♙ Пешеходный запрос</button>
+            </div>
+            <div id="compare-injections" class="injections">
+            </div>
+            <p id="compare-event-status" class="event-status" aria-live="polite">
+            </p>
+          </div>
+          <div id="compare-finished">
+          </div>
+        </section>
+        <section id="laboratory" class="page" hidden>
+          <div class="eyebrow">03 / ВОСПРОИЗВОДИМЫЙ ЭКСПЕРИМЕНТ</div>
+          <h1>Проверьте гипотезу</h1>
+          <p class="muted">Запуски без анимации и ручного ввода. Один заранее созданный поток для всех контроллеров каждого seed.</p>
+          <form id="lab-form" class="panel lab-form">
+            <div class="settings-row">
+              <label>Сценарий<select id="lab-scenario">
+                </select>
+              </label>
+              <label>Первый seed<input id="lab-seed" type="number" min="0" max="2147483647" value="42">
+              </label>
+              <label>Число seeds<input id="lab-runs" type="number" min="1" max="50" value="10">
+              </label>
+              <label>Генерация, с<input id="lab-duration" type="number" min="10" max="3600" value="1800">
+              </label>
+            </div>
+            <p id="lab-description" class="form-description">
+            </p>
+            <div id="lab-controllers" class="checks">
+            </div>
+            <div id="lab-custom" class="custom-rates" hidden>
+            </div>
+            <label>Пешеходные запросы, секунды через запятую (необязательно)<input id="lab-pedestrians" placeholder="Например: 5, 60, 120">
+            </label>
+            <details>
+              <summary>Расширенные параметры</summary>
+              <p class="muted small">Изменение параметров создаёт новый эксперимент. Эталонные holdout-результаты сохраняют зафиксированную конфигурацию.</p>
+              <div id="advanced-settings" class="advanced-grid">
+              </div>
+              <button id="reset-settings" type="button">Сбросить по умолчанию</button>
+            </details>
+            <button type="submit" id="run-lab" class="primary">Запустить эксперимент →</button>
+          </form>
+          <div id="lab-progress" class="panel" hidden>
+            <div class="panel-heading">
+              <strong id="lab-progress-label">Подготовка</strong>
+              <span id="lab-progress-count">
+              </span>
+            </div>
+            <progress id="lab-progress-bar" value="0" max="100">
+            </progress>
+            <p id="lab-error" role="alert">
+            </p>
+          </div>
+          <div id="lab-results">
+          </div>
+        </section>
+        <section id="results" class="page" hidden>
+          <div class="eyebrow">04 / ДАННЫЕ, А НЕ ОБЕЩАНИЯ</div>
+          <h1>Результаты исследования</h1>
+          <p class="lead">V2 сокращает потери на частых переключениях.</p>
+          <p class="muted">V1 хорошо обслуживает неравномерный поток, но при высокой близкой загрузке очереди вызывают частые MAX_WAIT. V2 увеличивает минимум зелёного только при больших близких приоритетах. Он не обязан побеждать FIXED.</p>
+          <div id="reference-meta" class="panel">
+          </div>
+          <div class="toolbar">
+            <button id="reproduce" class="primary">Воспроизвести эксперимент →</button>
+            <label>Показатель<select id="reference-metric">
+              </select>
+            </label>
+          </div>
+          <div id="reference-charts">
+          </div>
+          <div id="reference-table">
+          </div>
+          <p class="muted">Каждый seed имеет одинаковый вес; p95 — среднее отдельных p95. Эти результаты относятся к модели одного перекрёстка и выбранным потокам. Они не доказывают превосходство на любой дороге.</p>
+        </section>
+        <section id="how" class="page" hidden>
+          <div class="eyebrow">05 / ПРОЗРАЧНАЯ ЛОГИКА</div>
+          <h1>Почему светофор переключился?</h1>
+          <div class="feature-grid two">
+            <article class="panel">
+              <h2>Очередь + ожидание</h2>
+              <p>Чем больше машин и дольше ждёт первая, тем выше приоритет.</p>
+              <div class="formula">priority = queue + oldest_wait / <span id="wait-equivalent">10</span>
+              </div>
+              <label>Очередь: <output id="calc-queue-value">5</output> авто<input id="calc-queue" type="range" min="0" max="60" value="5">
+              </label>
+              <label>Старейшее ожидание: <output id="calc-wait-value">20</output> с<input id="calc-wait" type="range" min="0" max="180" value="20">
+              </label>
+              <p class="calculator-result">Приоритет <strong id="calc-result">7.00</strong>
+              </p>
+              <small>WAIT_EQUIVALENT — секунды ожидания, равные одной машине в формуле.</small>
+            </article>
+            <article class="panel">
+              <h2>V1 → V2</h2>
+              <p>
+                <b>V1</b> реагирует на приоритет и пороги ожидания после обычного MIN_GREEN.</p>
+              <p>
+                <b>V2</b> временно увеличивает минимум зелёного, если обе очереди велики и их приоритеты близки.</p>
+              <div id="v2-formula" class="formula">
+              </div>
+              <p>Как только нагрузка становится неравномерной или текущая очередь пуста, стабилизация отключается.</p>
+              <p class="muted">MAX_WAIT остаётся после эффективного минимума. Это порог решения, а не гарантия верхней границы задержки при перегрузке.</p>
+            </article>
+          </div>
+          <div class="panel">
+            <h2>Проверки по порядку</h2>
+            <div class="steps">
+              <span>Минимальный зелёный</span>
+              <span>EMPTY_CURRENT</span>
+              <span>MAX_WAIT</span>
+              <span>MAX_GREEN</span>
+              <span>HIGHER_PRIORITY</span>
+            </div>
+            <div id="parameter-explanations" class="feature-grid">
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Безопасность — отдельный автомат</h2>
+            <p>Контроллер не управляет конфликтующими лампами напрямую.</p>
+            <div class="steps">
+              <span>Controller</span>
+              <span>REQUEST SWITCH</span>
+              <span>TrafficLight state machine</span>
+            </div>
+            <h3>Автомобили</h3>
+            <div class="flow">NS_GREEN → NS_YELLOW → ALL_RED → EW_GREEN</div>
+            <h3>Пешеход</h3>
+            <div class="flow">GREEN → YELLOW → ALL_RED → PED_GREEN → PED_CLEARANCE → ALL_RED → GREEN</div>
+            <p class="muted">Во время PED_GREEN все автомобильные сигналы красные. Повторные запросы объединяются до завершения цикла.</p>
+          </div>
+        </section>
+        <section id="about" class="page" hidden>
+          <div class="eyebrow">06 / ИННОВАЦИИ УМНОГО ГОРОДА</div>
+          <h1>AdaptiveTraffic</h1>
+          <p class="lead">Разработка и исследование адаптивного алгоритма управления светофорным объектом в условиях неравномерного транспортного потока</p>
+          <div class="feature-grid two">
+            <article class="panel">
+              <h2>Цель</h2>
+              <p>Создать объяснимый алгоритм и проверить, когда он уменьшает задержку по сравнению с фиксированным циклом.</p>
+              <h2>Гипотеза</h2>
+              <p>Учёт очереди и ожидания поможет при неравномерном потоке, а стабилизация при близкой высокой нагрузке снизит потери на переходах.</p>
+            </article>
+            <article class="panel">
+              <h2>Реализовано</h2>
+              <p>Четыре контроллера, безопасный автомат, пешеходная фаза, локальная демонстрация, воспроизводимые эксперименты, CSV и диагностика.</p>
+              <h2>Следующие исследования</h2>
+              <p>Проверка на измеренных потоках, чувствительность к ошибкам датчиков и справедливость для отдельных направлений.</p>
+            </article>
+          </div>
+          <article class="panel">
+            <h2>Границы модели</h2>
+            <p>Один перекрёсток, движение прямо, независимые пуассоновские потоки и постоянный интервал обслуживания. Нет поворотов, разгона, соседних перекрёстков и ограничения длины очереди. Изображение — схема очередей, а не физическая модель движения.</p>
+            <a class="text-link" href="https://github.com/durovp/AdaptiveTraffic" target="_blank" rel="noopener">Исходный код и документация на GitHub ↗</a>
+            <small>Внешняя ссылка требует интернета; сама лаборатория работает локально.</small>
+          </article>
+        </section>
+      </main>
+      <footer>AdaptiveTraffic <span>Объяснимое управление. Проверяемые результаты.</span>
+      </footer>
+    </div>
+    <div id="toast" role="alert" hidden>
+    </div>
+  </body>
+</html>

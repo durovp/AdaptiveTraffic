@@ -113,9 +113,9 @@ def test_incomplete_queue_only_excludes_whole_triple():
     assert selected == [] and len(exclusions) == 1
 
 
-def test_three_controller_csv_analysis(tmp_path):
+def test_all_controller_csv_analysis(tmp_path):
     path = run_experiments(Config(simulation_duration=60), ["NS_HEAVY"], [42, 43], tmp_path / "three", "all")
     assert main([str(path), "--no-plots"]) == 0
     assert "Complete groups used: 2" in (path.parent / "analysis" / "analysis_report.txt").read_text()
     with (path.parent / "analysis" / "summary.csv").open() as stream:
-        assert {record["controller"] for record in csv.DictReader(stream)} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE"}
+        assert {record["controller"] for record in csv.DictReader(stream)} == {"FIXED", "QUEUE_ONLY", "ADAPTIVE", "ADAPTIVE_V2"}
