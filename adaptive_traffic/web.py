@@ -1,12 +1,14 @@
-"""Offline, loopback-only demonstration API. The Python model owns all decisions."""
+"""Local/hosted demonstration API. The Python model owns all traffic decisions."""
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 import asyncio
 import json
+import os
+import secrets
 from pathlib import Path
-from threading import RLock, Timer
+from threading import RLock, Timer, Event
 import time
 from typing import Literal
 from uuid import uuid4
@@ -27,6 +29,8 @@ from .presentation import get_view_state
 from .research import aggregate, read_csv
 from .scenarios import create_traffic_plan, create_custom_plan
 from .simulation import Simulation
+from .server_config import ServerConfig
+from .web_security import PublicPolicy
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / 'web'
@@ -96,6 +100,7 @@ class ExperimentSpec(SessionSpec):
 
 class Advance(Input):
     steps: int = Field(default=1, ge=1, le=1000)
+    expected_revision: int | None = Field(default=None, ge=0)
 
 
 class Injection(Input):
@@ -124,9 +129,11 @@ class Session:
         self.events = []
         self.touched = time.monotonic()
         self.lock = RLock()
+        self.revision = -1
         self.reset()
 
     def reset(self):
+        self.revision += 1
         self.simulations = [Simulation(self.config, self.plan, CONTROLLERS[name](self.config),
                                       tuple(self.spec.pedestrian_times), allow_injection=self.spec.interactive)
                             for name in self.spec.controllers]
@@ -137,6 +144,7 @@ class Session:
         return max(s.time for s in self.simulations)
 
     def advance(self, steps):
+        self.revision += 1
         for _ in range(steps):
             if all(s.finished for s in self.simulations):
                 break
@@ -162,10 +170,11 @@ class Session:
             for sim in self.simulations:
                 sim.request_pedestrian()
         self.events.append(dict(time=self.time, kind=kind, **payload))
+        self.revision += 1
 
     def view(self):
         finished = all(s.finished for s in self.simulations)
-        result = dict(id=self.id, spec=self.spec.model_dump(), time=self.time,
+        result = dict(id=self.id, revision=self.revision, spec=self.spec.model_dump(), time=self.time,
                       finished=finished, event_count=len(self.events),
                       views=[get_view_state(s) for s in self.simulations])
         if finished:
@@ -211,8 +220,10 @@ class Store:
 
 
 class Laboratory:
-    def __init__(self, root):
+    def __init__(self, root, timeout=None):
         self.root = root
+        self.timeout = timeout
+        self.stopping = Event()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='traffic-lab')
         self.jobs = {}
         self.lock = RLock()
@@ -242,7 +253,10 @@ class Laboratory:
         try:
             with self.lock:
                 self.jobs[key]['status'] = 'running'
+            started = time.monotonic()
             def progress(metrics, diagnostics):
+                if self.stopping.is_set() or (self.timeout and time.monotonic()-started > self.timeout):
+                    raise RuntimeError('Эксперимент остановлен по лимиту времени или при завершении сервера')
                 with self.lock:
                     self.jobs[key]['done'] += 1
             path = run_experiments(spec.config(), scenarios, list(range(spec.seed, spec.seed+spec.runs)), folder,
@@ -279,12 +293,18 @@ class Laboratory:
             return dict(self.jobs[key])
 
 
-def create_app(results_root: Path | None = None, *, testing=False):
-    store = Store()
-    lab = Laboratory(results_root or ROOT/'results')
+def create_app(results_root: Path | None = None, *, testing=False, server_config=None):
+    policy = server_config or ServerConfig.from_env()
+    store = Store(ttl=policy.session_ttl, capacity=policy.session_capacity)
+    lab = Laboratory(results_root or Path(os.getenv('RESULTS_DIR', str(ROOT/'results'))),
+                     timeout=policy.lab_timeout if policy.production else None)
 
     @asynccontextmanager
     async def lifespan(app):
+        if policy.production:
+            lab.root.mkdir(parents=True, exist_ok=True)
+            if not os.access(lab.root, os.W_OK):
+                raise RuntimeError('RESULTS_DIR недоступен на запись пользователю сервера')
         async def cleanup():
             while True:
                 await asyncio.sleep(30)
@@ -292,20 +312,31 @@ def create_app(results_root: Path | None = None, *, testing=False):
         task = asyncio.create_task(cleanup())
         yield
         task.cancel()
-        lab.executor.shutdown(wait=True)
+        lab.stopping.set()
+        lab.executor.shutdown(wait=True, cancel_futures=True)
 
     # Disable Swagger/ReDoc pages that otherwise load their assets from a CDN.
     app = FastAPI(title='AdaptiveTraffic', docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.store, app.state.lab = store, lab
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1','localhost'] + (['testserver'] if testing else []))
+    app.state.policy = policy
+    app.add_middleware(PublicPolicy, config=policy)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(policy.hosts) + (['testserver'] if testing else []))
 
-    @app.middleware('http')
-    async def local_origin(request: Request, call_next):
-        if request.method not in ('GET','HEAD'):
-            origin = request.headers.get('origin')
-            if origin and origin != f'{request.url.scheme}://{request.headers.get("host")}':
-                return JSONResponse({'detail':'Разрешены запросы только с этой локальной страницы'}, status_code=403)
-        return await call_next(request)
+    def validate_public_spec(spec):
+        if policy.production and spec.duration > policy.max_duration:
+            raise HTTPException(422, f'Публичная демонстрация: генерация не более {policy.max_duration} с')
+
+    def create_bounded(spec, plan=None):
+        # Reserve capacity before generating or allocating a simulation.
+        with store.lock:
+            store.cleanup()
+            if len(store.sessions) >= store.capacity:
+                raise HTTPException(429, 'Лимит активных сессий; закройте лишние или подождите')
+            return store.add(Session(spec, plan=plan))
+
+    @app.get('/healthz')
+    def health():
+        return {'status': 'ok'}
 
     @app.exception_handler(ValueError)
     async def value_error(request, error):
@@ -320,7 +351,11 @@ def create_app(results_root: Path | None = None, *, testing=False):
     @app.get('/api/project')
     def project():
         return dict(name='AdaptiveTraffic', controllers=list(CONTROLLERS), defaults=asdict(Config()),
-                    settings=list(SETTINGS), github='https://github.com/durovp/AdaptiveTraffic')
+                    settings=list(SETTINGS), github='https://github.com/durovp/AdaptiveTraffic',
+                    hardware=dict(protocol=1, baud_rate=115200, watchdog_ms=2500, sync_ms=4000,
+                                  timings_ms=[3000,1000,10000,3000]),
+                    hosting=dict(production=policy.production, max_duration=policy.max_duration,
+                                 laboratory_requires_token=policy.production))
 
     @app.get('/api/scenarios')
     def scenarios():
@@ -332,7 +367,8 @@ def create_app(results_root: Path | None = None, *, testing=False):
 
     @app.post('/api/sessions')
     def create_session(spec: SessionSpec):
-        return store.add(Session(spec)).view()
+        validate_public_spec(spec)
+        return create_bounded(spec).view()
 
     @app.get('/api/sessions/{key}')
     def get_session(key: str):
@@ -350,6 +386,8 @@ def create_app(results_root: Path | None = None, *, testing=False):
     def advance(key: str, body: Advance):
         session = store.get(key)
         with session.lock:
+            if body.expected_revision is not None and body.expected_revision != session.revision:
+                raise HTTPException(409, 'Состояние изменилось. Требуется повторная синхронизация')
             session.advance(body.steps)
             return session.view()
 
@@ -399,21 +437,42 @@ def create_app(results_root: Path | None = None, *, testing=False):
 
     @app.post('/api/comparison')
     def comparison(body: ComparisonSpec):
+        validate_public_spec(body)
         if body.source_id:
             source = store.get(body.source_id)
             with source.lock:
                 values = source.spec.model_dump(); values['controllers'] = body.controllers
-                session = Session(SessionSpec(**values), plan=source.plan)
+                validate_public_spec(source.spec)
+                session = create_bounded(SessionSpec(**values), plan=source.plan)
                 for event in source.events:
                     session.advance(round((event['time']-session.time)/session.config.time_step))
                     session.event(event['kind'], {k:v for k,v in event.items() if k not in ('time','kind')})
                 session.advance(round((source.time-session.time)/session.config.time_step))
         else:
-            session = Session(SessionSpec(**body.model_dump(exclude={'source_id'})))
-        return store.add(session).view()
+            session = create_bounded(SessionSpec(**body.model_dump(exclude={'source_id'})))
+        return session.view()
 
     @app.post('/api/experiments')
-    def experiment(body: ExperimentSpec):
+    def experiment(body: ExperimentSpec, request: Request):
+        if policy.production:
+            supplied = request.headers.get('authorization','')
+            if not policy.admin_token or not secrets.compare_digest(supplied, 'Bearer '+policy.admin_token):
+                raise HTTPException(401, 'Лаборатория на хостинге доступна по ключу администратора')
+            total = body.runs * len(body.controllers) * (7 if body.scenario == 'ALL' else 1)
+            if total > 560:
+                raise HTTPException(422, 'Не более 560 запусков за один эксперимент')
+            # Never delete historic scientific data automatically.
+            stored = 0
+            # Include analysis and per-controller switch traces, not just the
+            # three downloadable files in each experiment's top directory.
+            for folder in lab.root.glob('web_*'):
+                for path in folder.rglob('*'):
+                    try:
+                        if path.is_file(): stored += path.stat().st_size
+                    except FileNotFoundError:
+                        continue  # An administrator may be archiving old results.
+                    if stored >= 100*1024*1024:
+                        raise HTTPException(507, 'Лимит результатов 100 МиБ; администратору нужно архивировать данные')
         return lab.submit(body)
 
     @app.get('/api/experiments/{key}')

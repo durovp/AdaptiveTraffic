@@ -1,0 +1,53 @@
+name: Tests and production container
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Python, frontend and firmware protocol tests
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/python -m pytest -q
+      - name: Build production image
+        run: docker build --pull -t adaptive-traffic:check .
+      - name: Run with 500 MB and 0.25 CPU
+        run: |
+          export ADMIN_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          echo "::add-mask::$ADMIN_TOKEN"
+          docker run -d --name traffic-ci --memory=500000000 --memory-swap=500000000 \
+            --cpus=0.25 --pids-limit=64 --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges:true --tmpfs /tmp:size=32m,noexec,nosuid \
+            --mount type=volume,destination=/data -p 127.0.0.1:18000:8000 \
+            -e ALLOWED_HOSTS=127.0.0.1,traffic.example \
+            -e ALLOWED_ORIGINS=https://traffic.example -e ADMIN_TOKEN adaptive-traffic:check
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18000/healthz; then break; fi
+            sleep 1
+          done
+          python3 tools/check_production.py --url http://127.0.0.1:18000 --stress
+          docker exec traffic-ci python -c "from pathlib import Path; print('cgroup memory.peak:',Path('/sys/fs/cgroup/memory.peak').read_text()); print('cgroup memory.events:',Path('/sys/fs/cgroup/memory.events').read_text()); print(Path('/proc/1/status').read_text())"
+          docker stats --no-stream traffic-ci
+          for attempt in $(seq 1 40); do
+            if [ "$(docker inspect -f '{{.State.Health.Status}}' traffic-ci)" = healthy ]; then break; fi
+            sleep 1
+          done
+          test "$(docker inspect -f '{{.State.Health.Status}}' traffic-ci)" = healthy
+          test "$(docker inspect -f '{{.State.OOMKilled}}' traffic-ci)" = false
+      - name: Logs and cleanup
+        if: always()
+        run: |
+          if docker container inspect traffic-ci >/dev/null 2>&1; then
+            docker stop --time 20 traffic-ci
+            docker logs traffic-ci
+            docker rm -v traffic-ci
+          fi

@@ -7,6 +7,7 @@
     <title>AdaptiveTraffic · Лаборатория перекрёстка</title>
     <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/serial.js" defer></script>
     <script src="/static/app.js" defer>
     </script>
   </head>
@@ -26,6 +27,7 @@
         </a>
         <a href="#compare" data-page="compare">⇄ <span>Сравнение</span>
         </a>
+        <a href="#hardware" data-page="hardware">⌁ <span>Физический макет</span></a>
         <a href="#laboratory" data-page="laboratory">⚗ <span>Лаборатория</span>
         </a>
         <a href="#results" data-page="results">▥ <span>Результаты</span>
@@ -43,6 +45,7 @@
     </aside>
     <div class="workspace">
       <header class="topbar">
+        <span id="hw-global" class="hardware-chip" role="status">USB: не подключена</span>
         <span id="breadcrumb">ПРОЕКТ / ОБЗОР</span>
         <span class="top-right">PYTHON MODEL <span class="status-dot">
           </span>
@@ -221,6 +224,48 @@
           <div id="compare-finished">
           </div>
         </section>
+        <section id="hardware" class="page" hidden>
+          <div class="eyebrow">USB / ARDUINO UNO R3</div>
+          <h1>Физический макет</h1>
+          <p class="lead">Четыре светофора. Одна модель Python.</p>
+          <p id="hw-support" class="muted"></p>
+          <div class="panel">
+            <div class="panel-heading"><strong>Arduino: <span id="hw-connected">DISCONNECTED</span></strong><span class="chip">HARDWARE DEMO MODE · ×1</span></div>
+            <div class="toolbar">
+              <button id="hw-connect" class="primary">Подключить Arduino</button>
+              <button id="hw-disconnect">Отключить Arduino</button>
+              <button id="hw-check">Проверить соединение</button>
+              <button id="hw-test">Тест светодиодов</button>
+              <button id="hw-pedestrian">Пешеходный запрос</button>
+              <button id="hw-stop" class="hardware-stop">Безопасное отключение</button>
+            </div>
+            <p>До подключения загрузите прошивку AdaptiveTrafficArduino и закройте Serial Monitor Arduino IDE.</p>
+            <div class="settings-row">
+              <label>Источник<select id="hw-source"><option value="sim">Симулятор</option><option value="compare">Сравнение</option></select></label>
+              <label>Выводить на физический макет<select id="hw-controller"><option value="ADAPTIVE_V2">ADAPTIVE V2</option><option value="FIXED">FIXED</option><option value="ADAPTIVE">ADAPTIVE V1</option><option value="QUEUE_ONLY">QUEUE ONLY</option></select></label>
+              <button id="hw-bind" class="primary">Синхронизировать и запустить ×1</button>
+            </div>
+            <p class="muted">Синхронизация перезапускает выбранную симуляцию или всё сравнение с исходным планом, очищает ручные события и выдерживает ALL_RED 4 секунды. Алгоритм должен быть выбран в соответствующем симуляторе. При смене вывода нужна новая синхронизация.</p>
+            <p>Пауза отключает аппаратный вывод. Ускорение при синхронизации заблокировано; «До конца» сначала закрывает зелёные. При скрытии вкладки вывод приостанавливается.</p>
+          </div>
+          <div class="panel" aria-live="polite">
+            <h2>Последнее подтверждённое состояние</h2>
+            <p id="hw-sync-status">DISCONNECTED</p>
+            <div class="hardware-signals">
+              <div>NORTH<strong id="hw-NORTH">UNKNOWN</strong></div><div>SOUTH<strong id="hw-SOUTH">UNKNOWN</strong></div>
+              <div>EAST<strong id="hw-EAST">UNKNOWN</strong></div><div>WEST<strong id="hw-WEST">UNKNOWN</strong></div>
+              <div>PEDESTRIAN<strong id="hw-ped">UNKNOWN</strong></div>
+            </div>
+            <dl class="hardware-log">
+              <dt>Current phase</dt><dd id="hw-phase">UNKNOWN</dd>
+              <dt>Last command</dt><dd id="hw-last-command">—</dd>
+              <dt>Last acknowledgment</dt><dd id="hw-last-ack">—</dd>
+              <dt>Last connection error</dt><dd id="hw-error">—</dd>
+            </dl>
+            <p class="muted">UNKNOWN означает отсутствие подтверждения, а не измерение ламп. При потере связи питаемая плата закрывает зелёные через 2,5 секунды. При отключении USB-питания лампы гаснут. До setup() программная защита не действует.</p>
+          </div>
+          <p>Сначала создайте поток в <a href="#simulator">симуляторе</a> или выберите алгоритмы в <a href="#compare">сравнении</a>. Все четыре виртуальные модели могут работать параллельно, физический макет показывает одну.</p>
+        </section>
         <section id="laboratory" class="page" hidden>
           <div class="eyebrow">03 / ВОСПРОИЗВОДИМЫЙ ЭКСПЕРИМЕНТ</div>
           <h1>Проверьте гипотезу</h1>
@@ -252,6 +297,10 @@
               </div>
               <button id="reset-settings" type="button">Сбросить по умолчанию</button>
             </details>
+            <label id="lab-auth" hidden>Ключ администратора для лаборатории на хостинге
+              <input id="lab-admin-token" type="password" autocomplete="off" placeholder="Ключ из настроек сервера">
+              <small>Не сохраняется в браузерном хранилище. Без ключа доступны симулятор и готовые результаты.</small>
+            </label>
             <button type="submit" id="run-lab" class="primary">Запустить эксперимент →</button>
           </form>
           <div id="lab-progress" class="panel" hidden>

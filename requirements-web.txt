@@ -1,0 +1,4 @@
+# Hosting needs no pygame, pytest or matplotlib; charts use local SVG/Canvas.
+# Scientific CLI with file plots keeps using requirements.txt.
+fastapi>=0.115,<1
+uvicorn>=0.30,<1

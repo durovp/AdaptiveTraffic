@@ -1213,3 +1213,14 @@ footer {
   margin-top: 0;
   box-shadow: 0 8px 12px #10171e70
 }
+
+/* Physical demonstrator uses the existing palette and panel system. */
+.hardware-chip { color: var(--accent, #76dfb7); font-size: .75rem; max-width: 25rem; }
+.hardware-stop { border-color: #ef8b85; color: #ffb0aa; }
+.hardware-signals { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px; margin: 20px 0; }
+.hardware-signals div { padding: 16px; background: #14232b; border: 1px solid #35424a; border-radius: 8px; }
+.hardware-signals strong { display: block; margin-top: 10px; color: #eaf4f4; }
+.hardware-log { display: grid; grid-template-columns: minmax(120px,1fr) 3fr; gap: 12px; }
+.hardware-log dd { margin: 0; overflow-wrap: anywhere; font-family: monospace; }
+#hw-sync-status { color: #f1ce72; }
+@media(max-width: 700px) { .hardware-chip { max-width: 9rem; } .hardware-log { grid-template-columns: 1fr; } }

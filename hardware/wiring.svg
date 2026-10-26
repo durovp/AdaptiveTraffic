@@ -1,0 +1,328 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1680" viewBox="0 0 1400 1680" role="img" aria-labelledby="title desc">
+<title id="title">AdaptiveTraffic: четырёхсторонний перекрёсток на Arduino Uno R3</title>
+<desc id="desc">Условная электрическая схема. Четырнадцать отдельных цепей GPIO — резистор 1 кОм — LED — общая земля. NORTH D2 D3 D4; SOUTH D5 D6 D7; EAST D8 D9 D10; WEST D11 D12 A0; пешеход A1 A2. Кнопка A3 соединяется с GND, внутренняя подтяжка INPUT_PULLUP. Питание только USB.</desc>
+<defs>
+  <style>
+    text { font-family: "DejaVu Sans", sans-serif; fill: #172638; }
+    .mono { font-family: "DejaVu Sans Mono", monospace; }
+    .small { font-size: 16px; fill: #526579; }
+    .pin { font-size: 22px; font-weight: 700; }
+    .wire { fill: none; stroke: #304458; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+    .ground { fill: none; stroke: #18796a; stroke-width: 3; stroke-linecap: round; }
+    .node { fill: #18796a; }
+  </style>
+  <marker id="light-arrow" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="#304458"/></marker>
+</defs>
+<rect width="1400" height="1680" fill="#ffffff"/>
+<rect x="0" y="0" width="1400" height="8" fill="#15796a"/>
+<text x="48" y="66" font-size="33" font-weight="700">AdaptiveTraffic · Arduino Uno R3</text>
+<text x="48" y="103" font-size="20" fill="#526579">4 автомобильных светофора + пешеходный светофор + кнопка</text>
+<rect x="48" y="123" width="1304" height="38" rx="7" fill="#edf6f2"/>
+<text x="65" y="149" font-size="17">14 LED · 14 отдельных резисторов 1 кОм · общая GND · питание только USB</text>
+<rect x="48" y="182" width="300" height="1310" rx="14" fill="#f0f5f8" stroke="#6a8398" stroke-width="2"/>
+<text x="73" y="218" font-size="25" font-weight="700">ARDUINO UNO R3</text>
+<text x="73" y="246" class="small">ATmega328P · GPIO = 5 В</text>
+<text x="73" y="270" class="small">D0 / D1: только Serial</text>
+<text x="73" y="294" class="small">D13: свободен</text>
+
+<text x="780" y="216" font-size="16" >РЕЗИСТОР</text>
+<text x="1030" y="216" font-size="16" >LED: A → K</text>
+<text x="1330" y="216" font-size="18" text-anchor="middle" fill="#18796a">GND</text>
+<path class="ground" d="M1330,310 L1330,1455"/>
+<rect x="408" y="245" width="882" height="190" rx="10" fill="#fbfcfd" stroke="#d9e1e8"/>
+<text x="429" y="272" font-size="20" font-weight="700">NORTH / СЕВЕР</text>
+<g id="led-branch-1" data-pin="D2" data-signal="NORTH_RED">
+<text x="252" y="317" class="pin mono" >D2</text>
+<text x="73" y="316" class="mono small" >PD2</text>
+<path class="wire" d="M348,310 H780"/>
+<circle cx="348" cy="310" r="4" fill="#304458"/>
+<text x="429" y="297" class="mono" font-size="17" >NORTH_RED</text>
+<rect id="R1" x="780" y="302" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="296" font-size="14" text-anchor="middle">R1 · 1 кОм</text>
+<path class="wire" d="M868,310 H1060"/>
+<path id="LED1" d="M1060,298 L1084,310 L1060,322 Z" fill="#d84343" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,296 L1086,324"/>
+<path class="wire" d="M1086,310 H1330"/>
+<text x="1039" y="301" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="301" font-size="13" >K</text>
+<path d="M1070,292 L1086,277 M1085,293 L1101,278" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="297" font-size="14" >LED1 · RED</text>
+<circle class="node" cx="1330" cy="310" r="4"/>
+</g>
+<g id="led-branch-2" data-pin="D3" data-signal="NORTH_YELLOW">
+<text x="252" y="367" class="pin mono" >D3</text>
+<text x="73" y="366" class="mono small" >PD3</text>
+<path class="wire" d="M348,360 H780"/>
+<circle cx="348" cy="360" r="4" fill="#304458"/>
+<text x="429" y="347" class="mono" font-size="17" >NORTH_YELLOW</text>
+<rect id="R2" x="780" y="352" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="346" font-size="14" text-anchor="middle">R2 · 1 кОм</text>
+<path class="wire" d="M868,360 H1060"/>
+<path id="LED2" d="M1060,348 L1084,360 L1060,372 Z" fill="#d5a018" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,346 L1086,374"/>
+<path class="wire" d="M1086,360 H1330"/>
+<text x="1039" y="351" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="351" font-size="13" >K</text>
+<path d="M1070,342 L1086,327 M1085,343 L1101,328" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="347" font-size="14" >LED2 · YELLOW</text>
+<circle class="node" cx="1330" cy="360" r="4"/>
+</g>
+<g id="led-branch-3" data-pin="D4" data-signal="NORTH_GREEN">
+<text x="252" y="417" class="pin mono" >D4</text>
+<text x="73" y="416" class="mono small" >PD4</text>
+<path class="wire" d="M348,410 H780"/>
+<circle cx="348" cy="410" r="4" fill="#304458"/>
+<text x="429" y="397" class="mono" font-size="17" >NORTH_GREEN</text>
+<rect id="R3" x="780" y="402" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="396" font-size="14" text-anchor="middle">R3 · 1 кОм</text>
+<path class="wire" d="M868,410 H1060"/>
+<path id="LED3" d="M1060,398 L1084,410 L1060,422 Z" fill="#189b69" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,396 L1086,424"/>
+<path class="wire" d="M1086,410 H1330"/>
+<text x="1039" y="401" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="401" font-size="13" >K</text>
+<path d="M1070,392 L1086,377 M1085,393 L1101,378" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="397" font-size="14" >LED3 · GREEN</text>
+<circle class="node" cx="1330" cy="410" r="4"/>
+</g>
+<rect x="408" y="455" width="882" height="190" rx="10" fill="#fbfcfd" stroke="#d9e1e8"/>
+<text x="429" y="482" font-size="20" font-weight="700">SOUTH / ЮГ</text>
+<g id="led-branch-4" data-pin="D5" data-signal="SOUTH_RED">
+<text x="252" y="527" class="pin mono" >D5</text>
+<text x="73" y="526" class="mono small" >PD5</text>
+<path class="wire" d="M348,520 H780"/>
+<circle cx="348" cy="520" r="4" fill="#304458"/>
+<text x="429" y="507" class="mono" font-size="17" >SOUTH_RED</text>
+<rect id="R4" x="780" y="512" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="506" font-size="14" text-anchor="middle">R4 · 1 кОм</text>
+<path class="wire" d="M868,520 H1060"/>
+<path id="LED4" d="M1060,508 L1084,520 L1060,532 Z" fill="#d84343" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,506 L1086,534"/>
+<path class="wire" d="M1086,520 H1330"/>
+<text x="1039" y="511" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="511" font-size="13" >K</text>
+<path d="M1070,502 L1086,487 M1085,503 L1101,488" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="507" font-size="14" >LED4 · RED</text>
+<circle class="node" cx="1330" cy="520" r="4"/>
+</g>
+<g id="led-branch-5" data-pin="D6" data-signal="SOUTH_YELLOW">
+<text x="252" y="577" class="pin mono" >D6</text>
+<text x="73" y="576" class="mono small" >PD6</text>
+<path class="wire" d="M348,570 H780"/>
+<circle cx="348" cy="570" r="4" fill="#304458"/>
+<text x="429" y="557" class="mono" font-size="17" >SOUTH_YELLOW</text>
+<rect id="R5" x="780" y="562" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="556" font-size="14" text-anchor="middle">R5 · 1 кОм</text>
+<path class="wire" d="M868,570 H1060"/>
+<path id="LED5" d="M1060,558 L1084,570 L1060,582 Z" fill="#d5a018" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,556 L1086,584"/>
+<path class="wire" d="M1086,570 H1330"/>
+<text x="1039" y="561" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="561" font-size="13" >K</text>
+<path d="M1070,552 L1086,537 M1085,553 L1101,538" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="557" font-size="14" >LED5 · YELLOW</text>
+<circle class="node" cx="1330" cy="570" r="4"/>
+</g>
+<g id="led-branch-6" data-pin="D7" data-signal="SOUTH_GREEN">
+<text x="252" y="627" class="pin mono" >D7</text>
+<text x="73" y="626" class="mono small" >PD7</text>
+<path class="wire" d="M348,620 H780"/>
+<circle cx="348" cy="620" r="4" fill="#304458"/>
+<text x="429" y="607" class="mono" font-size="17" >SOUTH_GREEN</text>
+<rect id="R6" x="780" y="612" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="606" font-size="14" text-anchor="middle">R6 · 1 кОм</text>
+<path class="wire" d="M868,620 H1060"/>
+<path id="LED6" d="M1060,608 L1084,620 L1060,632 Z" fill="#189b69" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,606 L1086,634"/>
+<path class="wire" d="M1086,620 H1330"/>
+<text x="1039" y="611" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="611" font-size="13" >K</text>
+<path d="M1070,602 L1086,587 M1085,603 L1101,588" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="607" font-size="14" >LED6 · GREEN</text>
+<circle class="node" cx="1330" cy="620" r="4"/>
+</g>
+<rect x="408" y="665" width="882" height="190" rx="10" fill="#fbfcfd" stroke="#d9e1e8"/>
+<text x="429" y="692" font-size="20" font-weight="700">EAST / ВОСТОК</text>
+<g id="led-branch-7" data-pin="D8" data-signal="EAST_RED">
+<text x="252" y="737" class="pin mono" >D8</text>
+<text x="73" y="736" class="mono small" >PB0</text>
+<path class="wire" d="M348,730 H780"/>
+<circle cx="348" cy="730" r="4" fill="#304458"/>
+<text x="429" y="717" class="mono" font-size="17" >EAST_RED</text>
+<rect id="R7" x="780" y="722" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="716" font-size="14" text-anchor="middle">R7 · 1 кОм</text>
+<path class="wire" d="M868,730 H1060"/>
+<path id="LED7" d="M1060,718 L1084,730 L1060,742 Z" fill="#d84343" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,716 L1086,744"/>
+<path class="wire" d="M1086,730 H1330"/>
+<text x="1039" y="721" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="721" font-size="13" >K</text>
+<path d="M1070,712 L1086,697 M1085,713 L1101,698" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="717" font-size="14" >LED7 · RED</text>
+<circle class="node" cx="1330" cy="730" r="4"/>
+</g>
+<g id="led-branch-8" data-pin="D9" data-signal="EAST_YELLOW">
+<text x="252" y="787" class="pin mono" >D9</text>
+<text x="73" y="786" class="mono small" >PB1</text>
+<path class="wire" d="M348,780 H780"/>
+<circle cx="348" cy="780" r="4" fill="#304458"/>
+<text x="429" y="767" class="mono" font-size="17" >EAST_YELLOW</text>
+<rect id="R8" x="780" y="772" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="766" font-size="14" text-anchor="middle">R8 · 1 кОм</text>
+<path class="wire" d="M868,780 H1060"/>
+<path id="LED8" d="M1060,768 L1084,780 L1060,792 Z" fill="#d5a018" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,766 L1086,794"/>
+<path class="wire" d="M1086,780 H1330"/>
+<text x="1039" y="771" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="771" font-size="13" >K</text>
+<path d="M1070,762 L1086,747 M1085,763 L1101,748" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="767" font-size="14" >LED8 · YELLOW</text>
+<circle class="node" cx="1330" cy="780" r="4"/>
+</g>
+<g id="led-branch-9" data-pin="D10" data-signal="EAST_GREEN">
+<text x="252" y="837" class="pin mono" >D10</text>
+<text x="73" y="836" class="mono small" >PB2</text>
+<path class="wire" d="M348,830 H780"/>
+<circle cx="348" cy="830" r="4" fill="#304458"/>
+<text x="429" y="817" class="mono" font-size="17" >EAST_GREEN</text>
+<rect id="R9" x="780" y="822" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="816" font-size="14" text-anchor="middle">R9 · 1 кОм</text>
+<path class="wire" d="M868,830 H1060"/>
+<path id="LED9" d="M1060,818 L1084,830 L1060,842 Z" fill="#189b69" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,816 L1086,844"/>
+<path class="wire" d="M1086,830 H1330"/>
+<text x="1039" y="821" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="821" font-size="13" >K</text>
+<path d="M1070,812 L1086,797 M1085,813 L1101,798" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="817" font-size="14" >LED9 · GREEN</text>
+<circle class="node" cx="1330" cy="830" r="4"/>
+</g>
+<rect x="408" y="875" width="882" height="190" rx="10" fill="#fbfcfd" stroke="#d9e1e8"/>
+<text x="429" y="902" font-size="20" font-weight="700">WEST / ЗАПАД</text>
+<g id="led-branch-10" data-pin="D11" data-signal="WEST_RED">
+<text x="252" y="947" class="pin mono" >D11</text>
+<text x="73" y="946" class="mono small" >PB3</text>
+<path class="wire" d="M348,940 H780"/>
+<circle cx="348" cy="940" r="4" fill="#304458"/>
+<text x="429" y="927" class="mono" font-size="17" >WEST_RED</text>
+<rect id="R10" x="780" y="932" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="926" font-size="14" text-anchor="middle">R10 · 1 кОм</text>
+<path class="wire" d="M868,940 H1060"/>
+<path id="LED10" d="M1060,928 L1084,940 L1060,952 Z" fill="#d84343" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,926 L1086,954"/>
+<path class="wire" d="M1086,940 H1330"/>
+<text x="1039" y="931" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="931" font-size="13" >K</text>
+<path d="M1070,922 L1086,907 M1085,923 L1101,908" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="927" font-size="14" >LED10 · RED</text>
+<circle class="node" cx="1330" cy="940" r="4"/>
+</g>
+<g id="led-branch-11" data-pin="D12" data-signal="WEST_YELLOW">
+<text x="252" y="997" class="pin mono" >D12</text>
+<text x="73" y="996" class="mono small" >PB4</text>
+<path class="wire" d="M348,990 H780"/>
+<circle cx="348" cy="990" r="4" fill="#304458"/>
+<text x="429" y="977" class="mono" font-size="17" >WEST_YELLOW</text>
+<rect id="R11" x="780" y="982" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="976" font-size="14" text-anchor="middle">R11 · 1 кОм</text>
+<path class="wire" d="M868,990 H1060"/>
+<path id="LED11" d="M1060,978 L1084,990 L1060,1002 Z" fill="#d5a018" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,976 L1086,1004"/>
+<path class="wire" d="M1086,990 H1330"/>
+<text x="1039" y="981" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="981" font-size="13" >K</text>
+<path d="M1070,972 L1086,957 M1085,973 L1101,958" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="977" font-size="14" >LED11 · YELLOW</text>
+<circle class="node" cx="1330" cy="990" r="4"/>
+</g>
+<g id="led-branch-12" data-pin="A0" data-signal="WEST_GREEN">
+<text x="252" y="1047" class="pin mono" >A0</text>
+<text x="73" y="1046" class="mono small" >PC0</text>
+<path class="wire" d="M348,1040 H780"/>
+<circle cx="348" cy="1040" r="4" fill="#304458"/>
+<text x="429" y="1027" class="mono" font-size="17" >WEST_GREEN</text>
+<rect id="R12" x="780" y="1032" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="1026" font-size="14" text-anchor="middle">R12 · 1 кОм</text>
+<path class="wire" d="M868,1040 H1060"/>
+<path id="LED12" d="M1060,1028 L1084,1040 L1060,1052 Z" fill="#189b69" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,1026 L1086,1054"/>
+<path class="wire" d="M1086,1040 H1330"/>
+<text x="1039" y="1031" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="1031" font-size="13" >K</text>
+<path d="M1070,1022 L1086,1007 M1085,1023 L1101,1008" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="1027" font-size="14" >LED12 · GREEN</text>
+<circle class="node" cx="1330" cy="1040" r="4"/>
+</g>
+<rect x="408" y="1085" width="882" height="140" rx="10" fill="#fbfcfd" stroke="#d9e1e8"/>
+<text x="429" y="1112" font-size="20" font-weight="700">PEDESTRIAN / ПЕШЕХОД</text>
+<g id="led-branch-13" data-pin="A1" data-signal="PEDESTRIAN_RED">
+<text x="252" y="1157" class="pin mono" >A1</text>
+<text x="73" y="1156" class="mono small" >PC1</text>
+<path class="wire" d="M348,1150 H780"/>
+<circle cx="348" cy="1150" r="4" fill="#304458"/>
+<text x="429" y="1137" class="mono" font-size="17" >PEDESTRIAN_RED</text>
+<rect id="R13" x="780" y="1142" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="1136" font-size="14" text-anchor="middle">R13 · 1 кОм</text>
+<path class="wire" d="M868,1150 H1060"/>
+<path id="LED13" d="M1060,1138 L1084,1150 L1060,1162 Z" fill="#d84343" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,1136 L1086,1164"/>
+<path class="wire" d="M1086,1150 H1330"/>
+<text x="1039" y="1141" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="1141" font-size="13" >K</text>
+<path d="M1070,1132 L1086,1117 M1085,1133 L1101,1118" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="1137" font-size="14" >LED13 · RED</text>
+<circle class="node" cx="1330" cy="1150" r="4"/>
+</g>
+<g id="led-branch-14" data-pin="A2" data-signal="PEDESTRIAN_GREEN">
+<text x="252" y="1207" class="pin mono" >A2</text>
+<text x="73" y="1206" class="mono small" >PC2</text>
+<path class="wire" d="M348,1200 H780"/>
+<circle cx="348" cy="1200" r="4" fill="#304458"/>
+<text x="429" y="1187" class="mono" font-size="17" >PEDESTRIAN_GREEN</text>
+<rect id="R14" x="780" y="1192" width="88" height="16" fill="#fff" stroke="#304458" stroke-width="2.4"/>
+<text x="824" y="1186" font-size="14" text-anchor="middle">R14 · 1 кОм</text>
+<path class="wire" d="M868,1200 H1060"/>
+<path id="LED14" d="M1060,1188 L1084,1200 L1060,1212 Z" fill="#189b69" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M1086,1186 L1086,1214"/>
+<path class="wire" d="M1086,1200 H1330"/>
+<text x="1039" y="1191" font-size="13" text-anchor="end">A</text>
+<text x="1100" y="1191" font-size="13" >K</text>
+<path d="M1070,1182 L1086,1167 M1085,1183 L1101,1168" fill="none" stroke="#304458" stroke-width="1.5" marker-end="url(#light-arrow)"/>
+<text x="1148" y="1187" font-size="14" >LED14 · GREEN</text>
+<circle class="node" cx="1330" cy="1200" r="4"/>
+</g>
+<rect x="408" y="1278" width="882" height="127" rx="10" fill="#f4f8fb" stroke="#c5d6e2"/>
+<text x="429" y="1308" font-size="20" font-weight="700">S1 · ПЕШЕХОДНАЯ КНОПКА</text>
+<text x="429" y="1341" font-size="18" >INPUT_PULLUP: нажато = LOW</text>
+<text x="252" y="1357" class="pin mono" >A3</text>
+<text x="73" y="1376" class="mono small" >PC3</text>
+<path class="wire" d="M190,1370 H1050"/>
+<circle cx="348" cy="1370" r="4" fill="#304458"/>
+<path class="wire" d="M1130,1370 H1330"/>
+<circle cx="1050" cy="1370" r="5" fill="white" stroke="#304458" stroke-width="2.4"/><circle cx="1130" cy="1370" r="5" fill="white" stroke="#304458" stroke-width="2.4"/>
+<path class="wire" d="M1050,1370 L1117,1348"/>
+<path class="wire" d="M1090,1320 L1090,1334"/>
+<path class="wire" d="M1077,1320 H1103"/>
+<text x="1160" y="1350" class="mono small" >N.O.</text>
+<circle class="node" cx="1330" cy="1370" r="4"/>
+<text x="73" y="1260" font-size="14" >ВНУТРИ UNO</text>
+<text x="190" y="1283" font-size="15" text-anchor="middle">+5 В</text>
+<path class="wire" d="M190,1290 L190,1300"/>
+<rect x="182" y="1300" width="16" height="38" fill="white" stroke="#304458" stroke-width="2"/>
+<path class="wire" d="M190,1338 L190,1370"/>
+<text x="210" y="1314" font-size="13" >20–50</text>
+<text x="210" y="1332" font-size="13" >кОм</text>
+<circle cx="190" cy="1370" r="4" fill="#304458"/>
+<text x="252" y="1447" class="pin mono" >GND</text>
+<path class="ground" d="M348,1440 H1330"/>
+<circle cx="348" cy="1440" r="4" fill="#18796a"/><circle class="node" cx="1330" cy="1440" r="4"/>
+<path class="ground" d="M1310,1455 H1350"/>
+<path class="ground" d="M1317,1463 H1343"/>
+<path class="ground" d="M1324,1471 H1336"/>
+<text x="426" y="1467" font-size="18" >Все катоды и кнопка подключены к общей земле Arduino.</text>
+<path d="M48,1520 H1352" stroke="#d9e1e8" stroke-width="1.5"/>
+<text x="48" y="1554" font-size="18" >A = анод · K = катод (черта на символе) · каждый LED имеет свой резистор.</text>
+<text x="48" y="1586" font-size="17" >Условная электрическая схема; не схема отверстий breadboard. Пины подписаны как на Uno.</text>
+<text x="48" y="1618" font-size="17" >При 5 В / 1 кОм: ≤5 мА на ветвь, ≤25 мА для 5 LED. Допуски и группы токов — в WIRING.md.</text>
+<text x="48" y="1650" font-size="16" >До setup(), при сбросе или без USB питания программное состояние ALL_RED не гарантируется.</text>
+</svg>

@@ -31,12 +31,14 @@ const pageNames = {
   laboratory: 'Лаборатория',
   results: 'Результаты',
   how: 'Как это работает',
+  hardware: 'Физический макет',
   about: 'О проекте'
 };
 const sessions = {
   sim: null,
   compare: null
 };
+let hardware;
 let project, scenarios, reference, page = 'home',
   job = null,
   pollTimer = null;
@@ -59,12 +61,10 @@ function toast(message) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => el.hidden = true, 7500);
 }
-async function api(path, body, method) {
+async function api(path, body, method, extraHeaders = {}) {
   const r = await fetch(path, {
     method: method || (body === undefined ? 'GET' : 'POST'),
-    headers: body === undefined ? {} : {
-      'Content-Type': 'application/json'
-    },
+    headers: {...(body === undefined ? {} : {'Content-Type':'application/json'}), ...extraHeaders},
     body: body === undefined ? undefined : JSON.stringify(body)
   });
   if (!r.ok) {
@@ -93,7 +93,7 @@ function navigate() {
   const hash = location.hash.slice(1);
   page = pageNames[hash] ? hash : 'home';
   for (const mode of Object.keys(sessions))
-    if (sessions[mode]) sessions[mode].running = false;
+    if (sessions[mode] && !(hardware?.active && hardware.mode===mode)) sessions[mode].running = false;
   $$('.page').forEach(p => p.hidden = p.id !== page);
   $$('nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
   $('#breadcrumb').textContent = `ADAPTIVETRAFFIC / ${pageNames[page].toUpperCase()}`;
@@ -131,7 +131,8 @@ function updateStatus(mode) {
   status.textContent = s.working ? 'ВЫЧИСЛЕНИЕ…' : s.data.finished ? (s.data.views.every(v => v.completed_successfully) ? 'ЗАВЕРШЕНО' : 'ТАЙМ-АУТ') : s.running ? `ВЫПОЛНЯЕТСЯ / ×${s.speed}` : 'ПАУЗА';
   $$(`#${mode}-toolbar [data-speed]`).forEach(b => b.classList.toggle('selected', Number(b.dataset.speed) === s.speed));
 }
-async function createSession(mode, extra = {}) {
+async function createSession(mode, extra = {}, hardwareReset = false) {
+  if (!hardwareReset && (hardware?.mode===mode || hardware?.binding)) await hardware.suspend('SAFE — новая симуляция');
   if (sessions[mode]) {
     sessions[mode].running = false;
     await sessions[mode].pending.catch(() => {});
@@ -156,14 +157,18 @@ async function createSession(mode, extra = {}) {
   return data;
 }
 
-function command(mode, suffix, body = {}) {
+function command(mode, suffix, body = {}, hardwareReset = false) {
   const s = sessions[mode];
   if (!s) return Promise.reject(Error('Сначала создайте симуляцию'));
   s.working++;
   updateStatus(mode);
   s.pending = s.pending.catch(() => {}).then(async () => {
     try {
+      if (!hardwareReset && ['restart','finish'].includes(suffix) && (hardware?.mode===mode || hardware?.binding)) await hardware.suspend('SAFE — перезапуск / до конца');
+      if (hardware?.active && hardware.mode===mode && suffix==='advance') body={steps:1, expected_revision:s.data.revision};
+      const started=performance.now();
       s.data = await api(`/api/sessions/${s.data.id}/${suffix}`, body);
+      await hardware?.snapshot(mode,s.data,started);
       if (s.data.finished) s.running = false;
       render(mode);
       return s.data;
@@ -405,6 +410,7 @@ async function handleControl(control) {
   }
   if (control === 'pause') {
     s.running = false;
+    if (hardware?.mode===mode || hardware?.binding) await hardware.suspend('SAFE — пауза; для вывода снова синхронизируйте');
     updateStatus(mode);
   }
   if (control === 'restart') {
@@ -443,7 +449,8 @@ async function runLab(event) {
   };
   $('#run-lab').disabled = true;
   try {
-    job = await api('/api/experiments', body);
+    const token=$('#lab-admin-token').value.trim();
+    job = await api('/api/experiments', body, undefined, token ? {Authorization:`Bearer ${token}`} : {});
     $('#lab-results').innerHTML = '';
     $('#lab-progress').hidden = false;
     $('#lab-error').textContent = '';
@@ -480,8 +487,55 @@ async function pollJob() {
     $('#lab-error').textContent = e.message;
   }
 }
+
+function initializeHardware() {
+  hardware=new HardwareDemo({
+    notify:toast,
+    pause:mode=> { if (sessions[mode]) { sessions[mode].running=false; updateStatus(mode); } },
+    settled:mode=>sessions[mode]?.pending.catch(()=>{}),
+    restart:async mode=> {
+      if (!sessions[mode]) await createSession(mode,{},true);
+      return command(mode,'restart',{},true);
+    },
+    current:async mode=> {
+      const start=performance.now();
+      const data=await api(`/api/sessions/${sessions[mode].data.id}`);
+      if (performance.now()-start>1500) throw Error('Ответ Python слишком медленный');
+      return data;
+    },
+    start:mode=> { const s=sessions[mode]; s.speed=1; s.accumulator=0; s.running=true; updateStatus(mode); },
+    pedestrian:mode=>command(mode,'pedestrian',{})
+  });
+  $('#hw-support').textContent=window.isSecureContext && navigator.serial ?
+    'Web Serial доступен. Подключение запрашивается только кнопкой ниже.' :
+    'Web Serial недоступен: откройте HTTPS/localhost в Chrome или Chromium на компьютере. Симулятор работает без USB.';
+  listen('#hw-connect','click',()=> {
+    const timings=['yellow','all_red','ped_green','ped_clearance'].map(k=>project.defaults[k]*1000);
+    if (JSON.stringify(timings)!==JSON.stringify([3000,1000,10000,3000])) throw Error('Интервалы Python не соответствуют прошивке Protocol 1');
+    return hardware.serial.connect();
+  });
+  listen('#hw-disconnect','click',()=>hardware.disconnect());
+  listen('#hw-stop','click',()=>hardware.suspend('SAFE — безопасное отключение'));
+  listen('#hw-check','click',()=>hardware.serial.command('PING'));
+  listen('#hw-pedestrian','click',()=>hardware.button());
+  listen('#hw-bind','click',()=>hardware.bind($('#hw-source').value,$('#hw-controller').value));
+  for (const id of ['hw-source','hw-controller']) listen('#'+id,'change',()=>hardware.suspend('SAFE — выбор изменён; нужна синхронизация'));
+  listen('#hw-test','click',async()=> {
+    if (!hardware.serial.connected) throw Error('Сначала подключите Arduino');
+    await hardware.suspend('SAFE — подготовка теста LED');
+    $('#sim-controller').value='FIXED'; $('#sim-scenario').value='BALANCED_LOW'; $('#sim-duration').value=80;
+    await createSession('sim',{controllers:['FIXED'],scenario:'BALANCED_LOW',duration:80,pedestrian_times:[5]});
+    $('#hw-source').value='sim'; $('#hw-controller').value='FIXED';
+    await hardware.bind('sim','FIXED');
+    toast('Тест: обычная Python-модель FIXED, 80 с генерации + обслуживание. Проверьте все 14 LED.');
+  });
+}
+
 async function initialize() {
   [project, scenarios, reference] = await Promise.all([api('/api/project'), api('/api/scenarios'), api('/api/reference-results')]);
+  initializeHardware();
+  $('#lab-auth').hidden=!project.hosting.production;
+  if (project.hosting.production) for (const mode of ['sim','compare']) $(`#${mode}-duration`).max=project.hosting.max_duration;
   for (const prefix of ['sim', 'compare', 'lab']) {
     $(`#${prefix}-scenario`).innerHTML = (prefix === 'lab' ? '<option value="ALL">Все 7 сценариев</option>' : '') + scenarios.map(s => `<option value="${s.name}">${s.name.replaceAll('_',' ')}</option>`).join('');
     $(`#${prefix}-scenario`).value = prefix === 'lab' ? 'ALL' : 'NS_HEAVY';
@@ -568,6 +622,9 @@ async function initialize() {
     if (b.dataset.speed) {
       const s = sessions[modeForPage()];
       if (s) {
+        if ((hardware?.active || hardware?.binding) && Number(b.dataset.speed)!==1) {
+          toast('HARDWARE DEMO MODE: доступна только ×1. Сначала безопасно отключите аппаратный вывод.'); return;
+        }
         s.speed = Number(b.dataset.speed);
         updateStatus(modeForPage());
       }
@@ -625,6 +682,13 @@ async function initialize() {
     for (const mode of ['sim', 'compare']) {
       const s = sessions[mode];
       if (!s?.running || s.data.finished) continue;
+      if (hardware?.binding) continue;
+      if (hardware?.active && hardware.mode===mode) {
+        if (!s.working && hardware.canStep(mode)) command(mode,'advance',{steps:1}).catch(async e=> {
+          s.running=false; await hardware.suspend('DESYNC — '+e.message).catch(()=>{}); toast(e.message);
+        });
+        continue;
+      }
       s.accumulator += elapsed * s.speed;
       if (s.working || s.accumulator < 1) continue;
       const steps = Math.min(Math.floor(s.accumulator), 1000);
